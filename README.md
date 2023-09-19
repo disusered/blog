@@ -1,5 +1,7 @@
 # My Blog
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/8ac29931-7045-4eb0-8b9b-84d10a3382b6/deploy-status)](https://app.netlify.com/sites/disusered/deploys)
+
 ## 🧞 Commands
 
 All commands are run from the root of the project, from a terminal:
