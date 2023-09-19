@@ -1,0 +1,4 @@
+# Ignore artifacts:
+.git
+.astro
+node_modules
