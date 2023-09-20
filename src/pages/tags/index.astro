@@ -19,11 +19,11 @@ const uniqueTags = [...new Set(tags)];
     <main>
       <section>
         <p>All tags</p>
-        <ul>
+        <ul class="tags tags--vertical">
           {
             uniqueTags.map((tag?: string) => (
               <li>
-                <a href={`/tags/${tag}/`}>{tag}</a>
+                <a class="tag" href={`/tags/${tag}/`}>{tag}</a>
               </li>
             ))
           }

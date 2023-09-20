@@ -36,7 +36,7 @@ const { posts } = Astro.props;
     <Header />
     <main>
       <section>
-        <p>Posts tagged with {tag}</p>
+        <p>Posts tagged with <span class="tag">{tag}</span></p>
         <ul>
           {
             posts.map((post: Post) => (

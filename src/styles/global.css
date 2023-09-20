@@ -107,6 +107,7 @@ code {
   padding: 2px 5px;
   background-color: rgb(var(--gray-light));
   border-radius: 2px;
+  font-size: 18px;
 }
 pre {
   padding: 1.5em;
@@ -132,6 +133,9 @@ hr {
   main {
     padding: 1em;
   }
+  code {
+    font-size: 16px;
+  }
 }
 
 .tags {
@@ -139,14 +143,35 @@ hr {
   justify-content: center;
   flex-wrap: wrap;
   list-style: none;
+  padding-left: 0;
+  margin-top: 2em;
 }
+
+.tags--vertical {
+  display: inline-block;
+  margin: 0;
+}
+
+.tags--vertical > li {
+  margin-bottom: 0.5em;
+}
+
 .tag {
   margin: 0.25em;
   border: dotted 1px #a1a1a1;
   border-radius: 0.5em;
   padding: 0.5em 1em;
   font-size: 0.8em;
+  color: var(--accent);
   background-color: #f8fcfd;
+}
+
+.tag::before {
+  content: "#";
+}
+
+a.tag:hover {
+  background-color: var(--gray-light);
 }
 
 .sr-only {

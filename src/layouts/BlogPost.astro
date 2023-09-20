@@ -78,21 +78,23 @@ const { title, description, pubDate, updatedDate, heroImage, tags } =
                 )
               }
             </div>
-            {
-              tags && (
-                <ul class="tags">
-                  {tags.map((tag) => (
-                    <li class="tag">
-                      <a href={`/tags/${tag}/`}>#{tag}</a>
-                    </li>
-                  ))}
-                </ul>
-              )
-            }
             <h1>{title}</h1>
             <hr />
           </div>
           <slot />
+          {
+            tags && (
+              <ul class="tags">
+                {tags.map((tag) => (
+                  <li>
+                    <a class="tag" href={`/tags/${tag}/`}>
+                      {tag}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
         </div>
       </article>
     </main>

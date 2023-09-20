@@ -25,13 +25,24 @@ const uniqueTags = [...new Set(tags)];
       </p>
 
       <p>
-        My current interests as determined by the hashtags on this site are:
+        You can find me online at the social media links in my header and
+        footer, although I'm not very active on any of them. If you want to get
+        in contact with me, you can email me at <code>crosquillas at gmail</code
+        >.
+      </p>
+
+      <p>
+        You can find out more about me by reading my <a href="/about">about</a>
+         page. My current interests (as determined by the hashtags I've used)
+        are:
       </p>
       <ul class="tags">
         {
           uniqueTags.map((tag?: string) => (
-            <li class="tag">
-              <a href={`/tags/${tag}/`}>#{tag}</a>
+            <li>
+              <a class="tag" href={`/tags/${tag}/`}>
+                {tag}
+              </a>
             </li>
           ))
         }
