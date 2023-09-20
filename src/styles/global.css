@@ -134,6 +134,21 @@ hr {
   }
 }
 
+.tags {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  list-style: none;
+}
+.tag {
+  margin: 0.25em;
+  border: dotted 1px #a1a1a1;
+  border-radius: 0.5em;
+  padding: 0.5em 1em;
+  font-size: 0.8em;
+  background-color: #f8fcfd;
+}
+
 .sr-only {
   border: 0;
   padding: 0;
