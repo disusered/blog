@@ -42,5 +42,4 @@ Any static assets, like images, can be placed in the `public/` directory.
 
 ## Credit
 
-
 Built with [Astro](https://astro.build). This theme is based off of [Bear Blog](https://github.com/HermanMartinus/bearblog/).
