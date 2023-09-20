@@ -2,26 +2,29 @@
 import BaseHead from "../../components/BaseHead.astro";
 import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
-import BlogPost from "../../layouts/BlogPost.astro";
-import { type CollectionEntry, getCollection } from "astro:content";
+import { getCollection, type CollectionEntry } from "astro:content";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../../consts";
 
 export async function getStaticPaths() {
   const allPosts = await getCollection("blog");
-  return [
-    { params: { tag: "astro" }, props: { posts: allPosts } },
-    { params: { tag: "blogging" }, props: { posts: allPosts } },
-    { params: { tag: "learning in public" }, props: { posts: allPosts } },
-    { params: { tag: "markdown" }, props: { posts: allPosts } },
+  const uniqueTags = [
+    ...new Set(allPosts.map((post) => post.data.tags).flat()),
   ];
+
+  return uniqueTags.map((tag) => {
+    const filteredPosts = allPosts.filter((post) =>
+      tag && post.data.tags ? post.data.tags.includes(tag) : false,
+    );
+    return {
+      params: { tag },
+      props: { posts: filteredPosts },
+    };
+  });
 }
 
+type Post = CollectionEntry<"blog">;
 const { tag } = Astro.params;
 const { posts } = Astro.props;
-const filteredPosts: CollectionEntry<"blog">[] = posts.filter(
-  (post: CollectionEntry<"blog">) =>
-    tag ? post.data.tags?.includes(tag) : false,
-);
 ---
 
 <!doctype html>
@@ -36,7 +39,7 @@ const filteredPosts: CollectionEntry<"blog">[] = posts.filter(
         <p>Posts tagged with {tag}</p>
         <ul>
           {
-            filteredPosts.map((post) => (
+            posts.map((post: Post) => (
               <li>
                 <a href="#">{post.data.title}</a>
               </li>
