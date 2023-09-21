@@ -7,8 +7,15 @@ import FormattedDate from "../components/FormattedDate.astro";
 
 type Props = CollectionEntry<"blog">["data"];
 
-const { title, description, pubDate, updatedDate, heroImage, tags } =
-  Astro.props;
+const {
+  title,
+  description,
+  pubDate,
+  updatedDate,
+  heroImage,
+  heroImageAlt,
+  tags,
+} = Astro.props;
 
 const schema = {
   "@context": "https://schema.org",
@@ -25,6 +32,14 @@ const schema = {
     },
   ],
 };
+
+const image =
+  heroImage && heroImageAlt
+    ? {
+        src: heroImage,
+        alt: heroImageAlt,
+      }
+    : undefined;
 ---
 
 <html lang="en">
@@ -32,8 +47,8 @@ const schema = {
     <BaseHead
       title={title}
       description={description}
-      image={heroImage}
       schema={schema}
+      image={image}
     />
     <style>
       main {
