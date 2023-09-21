@@ -4,17 +4,8 @@
 
 <script>
   // Find our component DOM on the page.
-  const buttons = document.querySelectorAll("[data-button]");
+  const button = document.querySelector("[data-button]");
 
-  // Add event listeners to fire confetti when a button is clicked.
-  buttons.forEach((button) => {
-    button.addEventListener("click", () => alert("You clicked the button 🎉"));
-  });
+  // Add event listeners to send alert when a button is clicked.
+  button.addEventListener("click", () => alert("You clicked the button 🎉"));
 </script>
-
-<style>
-  .wrapper {
-    display: block;
-    text-align: center;
-  }
-</style>

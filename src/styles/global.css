@@ -166,6 +166,11 @@ hr {
   background-color: #f8fcfd;
 }
 
+.wrapper {
+  display: flex;
+  justify-content: center;
+}
+
 .tag::before {
   content: "#";
 }

@@ -3,3 +3,4 @@
 .astro
 node_modules
 dist
+src/content/blog/*.mdx
