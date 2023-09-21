@@ -1,0 +1,21 @@
+---
+title: "Playing with Phaser"
+description: "Learning to make games using Phaser"
+pubDate: "Sept 20 2023"
+tags: ["phaser", "development", "games", "learning"]
+heroImage: "/blog-phaser.png"
+---
+
+I've been playing with the idea of making games for a while now. I started learning Godot but I realized I didn't want to learn a new language, I wanted to learn new concepts. So I decided to learn Phaser, a game engine that runs in an environment I have years of experience in, the web. Reading the tutorial, the first steps include setting up a web server, and I thought, "I can do that in Astro!" So I did.
+
+The first issue I ran into with Astro is that the content that is indexed for the blog has to be in Markdown or JSON. The saving grace is that Astro supports MDX, which is Markdown with JSX. So I can write JSX in my Markdown, which is pretty cool. I can even import components from the project and use them in my Markdown. So I create an MDX file in my content directory and realize there is no syntax highlighting in Neovim.
+
+I look for a Treesitter grammar with luck. I look online and see people setting the `ft` to JSX, but this would mean no language server features. I decided to write without syntax highlighting and develop the Phaser components in a separate file and import them into the MDX file.
+
+import HelloWorld from "../../components/Phaser/HelloWorld.astro"
+
+<HelloWorld />
+
+Success! By creating an `.astro` file in my `components/` directory, I am now able to load it into my MDX file and render it. I can even add styles and arbitrary HTML by using the Astro component syntax. Now let's try to load Phaser.
+
+import LoadPhaser from "../../components/Phaser/LoadPhaser.astro"
