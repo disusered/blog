@@ -164,6 +164,7 @@ hr {
   font-size: 0.8em;
   color: var(--accent);
   background-color: #f8fcfd;
+  text-decoration: none;
 }
 
 .wrapper {
