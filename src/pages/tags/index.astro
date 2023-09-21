@@ -7,12 +7,13 @@ import { SITE_TITLE, SITE_DESCRIPTION } from "../../consts";
 
 const tags = (await getCollection("blog")).map((post) => post.data.tags).flat();
 const uniqueTags = [...new Set(tags)];
+const title = `All Tags | ${SITE_TITLE}`;
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <BaseHead title={title} description={SITE_DESCRIPTION} />
   </head>
   <body>
     <Header />
@@ -23,7 +24,9 @@ const uniqueTags = [...new Set(tags)];
           {
             uniqueTags.map((tag?: string) => (
               <li>
-                <a class="tag" href={`/tags/${tag}/`}>{tag}</a>
+                <a class="tag" href={`/tags/${tag}/`}>
+                  {tag}
+                </a>
               </li>
             ))
           }

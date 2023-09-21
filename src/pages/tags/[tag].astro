@@ -25,12 +25,13 @@ export async function getStaticPaths() {
 type Post = CollectionEntry<"blog">;
 const { tag } = Astro.params;
 const { posts } = Astro.props;
+const title = `All posts tagged "${tag}" | ${SITE_TITLE}`;
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <BaseHead title={title} description={SITE_DESCRIPTION} />
   </head>
   <body>
     <Header />

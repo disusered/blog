@@ -4,6 +4,7 @@ import BaseHead from "../components/BaseHead.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import FormattedDate from "../components/FormattedDate.astro";
+import { SITE_TITLE } from "../consts";
 
 type Props = CollectionEntry<"blog">["data"];
 
@@ -45,7 +46,7 @@ const image =
 <html lang="en">
   <head>
     <BaseHead
-      title={title}
+      title={title + " | " + SITE_TITLE}
       description={description}
       schema={schema}
       image={image}
