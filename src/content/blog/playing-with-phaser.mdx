@@ -9,9 +9,17 @@ heroImageAlt: "A screenshot of a side-scrolling platform game with the Phaser lo
 
 I've been toying with the idea of making a videogame for a long time, but was lacking motivation. I recently came across a thread by Brian Bucklew who documented his work in porting his [Caves of Qud](https://www.cavesofqud.com/) from Unity to [Godot](https://godotengine.org/). The thread is a great read and I highly recommend it.
 
+import { Image } from "astro:assets";
+import tweetImage from "./playing-with-phaser-tweet.png";
+
 <div class="wrapper">
-  <blockquote class="twitter-tweet"><p lang="en" dir="ltr">time to fuck around and find out (and record my hours as records of damages inflicted) <a href="https://t.co/PktEbd88cB">pic.twitter.com/PktEbd88cB</a></p>&mdash; 🐔 Brian Bucklew 🐔 ₑͤ＞∿＜ₑͤ ∞🌮 (@unormal) <a href="https://twitter.com/unormal/status/1703163364229161236?ref_src=twsrc%5Etfw">September 16, 2023</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+  <Image
+    class="tweet"
+    src={tweetImage}
+    alt="Screenshot of Brian Bucklew's tweet about migrating to Godot"
+  />
 </div>
+<br />
 
 After reading the thread, it seems I finally found that motivation as I jumped into learning Godot. I very quickly realized I didn't want to learn a GDScript, so before investing more effort into Godot, I decided to try out [Phaser](https://phaser.io/), a JavaScript game engine that runs on the web. I began going through the [official tutorial](https://phaser.io/learn) and the first steps include setting up a web server. I thought to myself, "I can do that in Astro![^1]" So I did.
 
@@ -134,7 +142,7 @@ All in all, I converted the tutorial to TypeScript, loaded the assets locally, f
 ```js
 import LoadPhaser from "../../components/Phaser/LoadPhaser.astro";
 
-<LoadPhaser client:idle />
+<LoadPhaser client:idle />;
 ```
 
 <br />

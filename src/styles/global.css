@@ -172,12 +172,17 @@ hr {
   justify-content: center;
 }
 
+.wrapper .tweet {
+  max-width: 480px;
+  border: 1px solid rgb(var(--gray-light));
+}
+
 .tag::before {
   content: "#";
 }
 
 a.tag:hover {
-  background-color: var(--gray-light);
+  background-color: rgb(var(--gray-light));
 }
 
 .sr-only {
