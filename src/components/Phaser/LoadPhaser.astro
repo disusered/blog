@@ -1,9 +1,9 @@
 <script>
-  import Phaser, { Types } from "phaser";
+  import Phaser, { type Types } from "phaser";
 
   const gameConfig: Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: "100%",
+    width: 720,
     height: 300,
     parent: "phaser-1",
     physics: {
@@ -13,34 +13,32 @@
       },
     },
     scene: {
-      preload: preload,
-      create: create,
+      preload() {
+        this.load.image("sky", "/phaser/assets/space3.png");
+        this.load.image("logo", "/phaser/assets/phaser3-logo.png");
+        this.load.image("red", "/phaser/assets/red.png");
+      },
+      create() {
+        this.add.image(400, 300, "sky");
+
+        const emitter = this.add.particles(0, 0, "red", {
+          speed: 100,
+          scale: { start: 1, end: 0 },
+          blendMode: "ADD",
+        });
+
+        const logo = this.physics.add.image(400, 100, "logo");
+
+        logo.setVelocity(100, 200);
+        logo.setBounce(1, 1);
+        logo.setCollideWorldBounds(true);
+
+        emitter.startFollow(logo);
+      },
     },
   };
 
-  function preload() {
-    this.load.image("sky", "/phaser/assets/space3.png");
-    this.load.image("logo", "/phaser/assets/phaser3-logo.png");
-    this.load.image("red", "/phaser/assets/red.png");
-  }
-
-  function create() {
-    this.add.image(400, 300, "sky");
-
-    const emitter = this.add.particles(0, 0, "red", {
-      speed: 100,
-      scale: { start: 1, end: 0 },
-      blendMode: "ADD",
-    });
-
-    const logo = this.physics.add.image(400, 100, "logo");
-
-    logo.setVelocity(100, 200);
-    logo.setBounce(1, 1);
-    logo.setCollideWorldBounds(true);
-
-    emitter.startFollow(logo);
-  }
-
-  const game = new Phaser.Game(gameConfig);
+  new Phaser.Game(gameConfig);
 </script>
+
+<div id="phaser-1" style="margin-bottom:2em"></div>

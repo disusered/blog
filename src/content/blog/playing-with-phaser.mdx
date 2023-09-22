@@ -70,11 +70,11 @@ const emitter = this.add.particles(0, 0, "red", {
 });
 ```
 
-After addressing these issues, I was able to get the Phaser game to load inline! I wasn't able to add the `div` tag to the component file directly, but adding it after the component within the MDX works fine.
+After addressing these issues, I was able to get the Phaser game to load inline successfully. I also added an [Astro client directive](https://docs.astro.build/en/reference/directives-reference/#client-directives) to load the scripts only when the client is idle.
 
 import LoadPhaser from "../../components/Phaser/LoadPhaser.astro";
 
-<div id="phaser-1" style="margin-bottom:2em"></div>
+<LoadPhaser client:idle />
 
 All in all, I converted the tutorial to TypeScript, loaded the assets locally, fixed the particle emitter, loaded Phaser into a `<div>` tag and added some styles so it would fit on the page and not be too tall. The final source[^2] for the tutorial:
 
@@ -134,7 +134,7 @@ All in all, I converted the tutorial to TypeScript, loaded the assets locally, f
 ```js
 import LoadPhaser from "../../components/Phaser/LoadPhaser.astro";
 
-<div id="phaser-1"></div>;
+<LoadPhaser client:idle />
 ```
 
 <br />
