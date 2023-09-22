@@ -30,14 +30,19 @@ interface Props {
 }
 
 import { TWITTER_USERNAME } from "../consts";
+import { getImage } from "astro:assets";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+
+// Import fallback image and optimize it
+import fallbackImage from "../images/about-header.jpeg";
+const optimizedImage = await getImage({ src: fallbackImage });
 
 const {
   title,
   description,
   image = {
-    src: "/about-header.jpeg",
+    src: optimizedImage.src,
     alt: "A beach in Tossa de Mar, Spain",
   },
   schema,

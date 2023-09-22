@@ -1,33 +1,31 @@
-import { defineCollection, z } from "astro:content";
+import { defineCollection, z, type ImageFunction } from "astro:content";
 
-const imageWithAlt = z.object({
-  heroImage: z.string(),
-  heroImageAlt: z.string(),
-});
+const imageWithAlt = (image: ImageFunction) =>
+  z.object({
+    heroImage: image().refine((img) => img.width >= 480, {
+      message: "Cover image must be at least 480 pixels wide!",
+    }),
+    heroImageAlt: z.string(),
+  });
 
 const noImage = z.object({
   heroImage: z.undefined(),
   heroImageAlt: z.undefined(),
 });
 
-const optionalHeroImage = imageWithAlt.or(noImage);
-
-const schema = z
-  .object({
-    title: z.string(),
-    description: z.string(),
-    // Transform string to Date object
-    pubDate: z.coerce.date(),
-    updatedDate: z.coerce.date().optional(),
-    tags: z.array(z.string()).optional(),
-  })
-  .and(optionalHeroImage);
-
 const blog = defineCollection({
   // Type-check frontmatter using a schema
-  schema,
+  schema: ({ image }) =>
+    z
+      .object({
+        title: z.string(),
+        description: z.string(),
+        // Transform string to Date object
+        pubDate: z.coerce.date(),
+        updatedDate: z.coerce.date().optional(),
+        tags: z.array(z.string()).optional(),
+      })
+      .and(imageWithAlt(image).or(noImage)),
 });
 
 export const collections = { blog };
-
-// "heroImage and heroImageAlt must be both defined or both undefined",

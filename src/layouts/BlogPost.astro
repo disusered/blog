@@ -1,4 +1,5 @@
 ---
+import { Image } from "astro:assets";
 import type { CollectionEntry } from "astro:content";
 import BaseHead from "../components/BaseHead.astro";
 import Header from "../components/Header.astro";
@@ -22,7 +23,7 @@ const schema = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: title,
-  image: heroImage ? [heroImage] : [],
+  image: heroImage ? [heroImage.src] : [],
   datePublished: pubDate,
   dateModified: updatedDate ? updatedDate : pubDate,
   author: [
@@ -37,7 +38,7 @@ const schema = {
 const image =
   heroImage && heroImageAlt
     ? {
-        src: heroImage,
+        src: heroImage.src,
         alt: heroImageAlt,
       }
     : undefined;
@@ -97,11 +98,7 @@ const image =
     <main>
       <article>
         <div class="hero-image">
-          {
-            heroImage && (
-              <img width={1020} height={510} src={heroImage} alt="" />
-            )
-          }
+          {heroImage && <Image src={heroImage} alt={heroImageAlt} />}
         </div>
         <div class="prose">
           <div class="title">
