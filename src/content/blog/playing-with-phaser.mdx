@@ -78,11 +78,11 @@ const emitter = this.add.particles(0, 0, "red", {
 });
 ```
 
-After addressing these issues, I was able to get the Phaser game to load inline successfully. I also added an [Astro client directive](https://docs.astro.build/en/reference/directives-reference/#client-directives) to load the scripts only when the client is idle.
+After addressing these issues, I was able to get the Phaser game to load inline successfully. I also tried to an [Astro client directive](https://docs.astro.build/en/reference/directives-reference/#client-directives) to load the scripts only when the client is idle, but this embeds the script as-is and I wouldn't be able to use TypeScript, so I skipped it.
 
 import LoadPhaser from "../../components/Phaser/LoadPhaser.astro";
 
-<LoadPhaser client:idle />
+<LoadPhaser />
 
 All in all, I converted the tutorial to TypeScript, loaded the assets locally, fixed the particle emitter, loaded Phaser into a `<div>` tag and added some styles so it would fit on the page and not be too tall. The final source[^2] for the tutorial:
 
@@ -142,7 +142,7 @@ All in all, I converted the tutorial to TypeScript, loaded the assets locally, f
 ```js
 import LoadPhaser from "../../components/Phaser/LoadPhaser.astro";
 
-<LoadPhaser client:idle />;
+<LoadPhaser />;
 ```
 
 <br />
