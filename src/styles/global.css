@@ -149,15 +149,6 @@ hr {
   margin-top: 2em;
 }
 
-.tags--vertical {
-  display: inline-block;
-  margin: 0;
-}
-
-.tags--vertical > li {
-  margin-bottom: 0.5em;
-}
-
 .tag {
   border: dotted 1px #a1a1a1;
   border-radius: 0.5em;
