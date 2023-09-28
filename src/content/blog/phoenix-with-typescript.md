@@ -86,7 +86,7 @@ We now have a working Phoenix application! You can visit [`localhost:4000`](http
 
 ![A screenshot of a new Phoenix project](./phoenix-with-typescript-new-project.png)
 
-## Set up Node.js and TypeScript
+## Set up TypeScript
 
 Now let's take a look at the existing JavaScript setup. Phoenix uses [esbuild](https://esbuild.github.io/) to transpile and bundle the JavaScript code. The configuration is stored in `config/config.exs`:
 
@@ -210,3 +210,50 @@ Now we can run our `typecheck` script to see the errors in our `app.ts`. Remembe
 # Run the typecheck script
 npm --prefix assets run typecheck
 ```
+
+## Automatic type checking with watchers
+
+We can add an alias to our Mix tasks to run the `typecheck` script. This will allow us to run `mix assets.typecheck` from our project root. We can add the following to our `mix.exs` file under the `aliases` function.
+
+```diff
+diff --git a/mix.exs b/mix.exs
+index e7e6b2c..470decd 100644
+--- a/mix.exs
++++ b/mix.exs
+@@ -65,6 +65,7 @@ defmodule PhoenixTypescript.MixProject do
+       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
+       "ecto.reset": ["ecto.drop", "ecto.setup"],
+       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
++      "assets.typecheck": ["cmd npm --prefix assets run typecheck"],
+       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+       "assets.build": ["tailwind default", "esbuild default"],
+       "assets.deploy": ["tailwind default --minify", "esbuild default --minify", "phx.digest"]
+```
+
+This helps us run the type check manually, but we want to run the type check automatically when files are changed in the project. The only change we make to our `typecheck` command is to pass the `--watch` flag to `tsc`. This will watch our files for changes and run the type check automatically. When passing arguments to a `package.json` script, we need to prefix it with `--` to separate the arguments for `npm` and the arguments for the script.
+
+```bash
+# An example of running the typecheck script with the --watch flag
+npm --prefix assets run typecheck -- --watch
+```
+
+While that works, we want to run the type check automatically when we run `mix phx.server`. We can do that by adding our typecheck watcher command to our `config/dev.exs` file.
+
+```diff
+diff --git a/config/dev.exs b/config/dev.exs
+index e702834..591530f 100644
+--- a/config/dev.exs
++++ b/config/dev.exs
+@@ -26,7 +26,8 @@ config :phoenix_typescript, PhoenixTypescriptWeb.Endpoint,
+   secret_key_base: "4s+TpGoGfPgA4CEogO+83S26CXea4zHcpcQCKY7mwytLB4W2OXidoDYSQeUUPEcD",
+   watchers: [
+     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+-    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
++    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
++    npm: ["--prefix", "assets", "run", "typecheck", "--", "--watch"]
+   ]
+
+ # ## SSL Support
+```
+
+Now if we run `mix phx.server` we can see that the type check is running in the background. If we make a change to `app.ts` and save it, we can see that the type check runs automatically and the errors are displayed in the console. If we open the page in the browser, we can see that the JavaScript code is still working as expected. ESBuild is not blocked by the type check, it will still bundle the JavaScript code and reload the page as expected.
