@@ -12,6 +12,7 @@ tags:
     "esbuild",
     "alpinejs",
     "docker",
+    "petal",
   ]
 heroImage: "./phoenix-with-typescript.jpg"
 heroImageAlt: "The logos for the Phoenix Framework, TypeScript, and esbuild"
@@ -21,7 +22,7 @@ I've been working with Phoenix 1.7 for a few months now using the default JavaSc
 
 Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using esbuild to transpile the TypeScript code to JavaScript, I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development. For this blog post, I will be starting with a fresh Phoenix 1.7 project.
 
-I also want to go beyond the typical "Hello World" example and show how to use TypeScript with Phoenix LiveView. I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as [Alpine.js](https://alpinejs.dev/) which is commonly used with Phoenix for client-side interactivity.
+I also want to go beyond the typical "Hello World" example and show how to use TypeScript with [Phoenix LiveView](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html). I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as [Alpine.js](https://alpinejs.dev/) which is commonly used with Phoenix for client-side interactivity.
 
 ## Create a Phoenix 1.7 project
 
@@ -266,10 +267,12 @@ The first two errors we see in `app.ts` are related to the type declarations for
 js/app.ts:21:22 - error TS2307: Cannot find module 'phoenix' or its corresponding type declarations.
 
 21 import {Socket} from "phoenix"
+                        ~~~~~~~~~
 
 js/app.ts:22:26 - error TS2307: Cannot find module 'phoenix_live_view' or its corresponding type declarations.
 
 22 import {LiveSocket} from "phoenix_live_view"
+                            ~~~~~~~~~~~~~~~~~~~
 ```
 
 Since these libraries don't ship their own type declarations, we need to look for them elsewhere. Fortunately, the [DefinitelyTyped](https://definitelytyped.github.io/) project has declarations for both of these libraries. We can install them with `npm` as dev dependencies.
@@ -282,9 +285,11 @@ npm --prefix assets install @types/phoenix @types/phoenix_live_view --save-dev
 With this, the errors are gone. We can also see that our `package.json` and `package-lock.json` have been updated with these dependencies. We can move on the the next error. We can see it is related to the `topbar` library used to display a progress bar on the top of the screen.
 
 ```bash
-js/app.ts:23:20 - error TS7016: Could not find a declaration file for module '../vendor/topbar'. '/Users/carlos/Development/phoenix_typescript/assets/vendor/topbar.js' implicitly has an 'any' type.
+js/app.ts:14:20 - error TS7016: Could not find a declaration file for module 'topbar'. '/Users/carlos/Development/landing/assets/node_modules/topbar/topbar.min.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/topbar` if it exists or add a new declaration (.d.ts) file containing `declare module 'topbar';`
 
-23 import topbar from "../vendor/topbar"
+14 import topbar from "topbar"
+                      ~~~~~~~~
 ```
 
 This library is loaded from the `assets/vendor/` directory, and is part of the default Phoenix installation. Let's remove this hard-coded library and fetch the latest version from NPM:
@@ -321,6 +326,7 @@ We can see that the error no longer appears in our type check. But why? It turns
 js/app.ts:25:17 - error TS2531: Object is possibly 'null'.
 
 25 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
 Our script does not know if the `querySelector` will return a value or not, so we need to check for `null` before calling `getAttribute`. We can fix this by adding a null check to the code. We'll use the [optional chaining operator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining) to do this. This is an ES2020 feature, but thanks to esbuild with the `--target=es2017` flag, we can use it without any additional configuration.
@@ -344,9 +350,10 @@ index 70c1398..653efb4 100644
 We are down to the last error about the `liveSocket` variable not existing in the global browser scope:
 
 ```bash
-js/app.ts:40:8 - error TS2339: Property 'liveSocket' does not exist on type 'Window & typeof globalThis'.
+js/app.ts:44:8 - error TS2339: Property 'liveSocket' does not exist on type 'Window & typeof globalThis'.
 
-40 window.liveSocket = liveSocket
+44 window.liveSocket = liveSocket;
+          ~~~~~~~~~~
 ```
 
 To fix this, we will need to add a type declaration for the `liveSocket` variable. We can do this by adding a `global.d.ts` file to our `assets` directory. This file will be automatically loaded by the TypeScript compiler, and we can add our type declaration to it.
@@ -369,3 +376,125 @@ declare global {
 ```
 
 We can see that the error is gone, and we have a working TypeScript setup!
+
+## Integrating with Alpine.js
+
+LiveView excels at interactivity that requires coordination with the backend, but we shouldn't have to go to the server for purely client-side interactions. To that end, Alpine.js was developed to facilitate implementing client-side interactivity. It has been adopted as part of the [PETAL stack](https://thinkingelixir.com/petal-stack-in-elixir/), composed of **P**hoenix Framework, **E**lixir, **T**ailwind CSS, **A**lpine.js, and **L**iveView. The default Phoenix installation comes with everything except Alpine.js, so we need to install it ourselves.
+
+```bash
+# Install Alpine.js
+npm --prefix assets install alpinejs --save
+
+# Install the type declarations
+npm --prefix assets install @types/alpinejs --save-dev
+```
+
+Now we need to initialize Alpine.js in our `app.ts` file. Following the [Alpine.js documentation](https://alpinejs.dev/essentials/installation), we add the following code to the end of our `app.ts` file:
+
+```typescript
+// Import and initialize Alpine.js
+import Alpine from "alpinejs";
+window.Alpine = Alpine;
+Alpine.start();
+```
+
+While this works, we can see a type error from binding Alpine to the window. This is not strictly required for Alpine to function, but the docs recommend this approach to allow tinkering with Alpine from the browser developer tools during development.
+
+```bash
+js/app.ts:48:8 - error TS2339: Property 'Alpine' does not exist on type 'Window & typeof globalThis'.
+
+48 window.Alpine = Alpine;
+          ~~~~~~
+```
+
+We can fix this by adding a type declaration for the `Alpine` variable in our `global.d.ts` file.
+
+```diff
+diff --git a/assets/global.d.ts b/assets/global.d.ts
+index 82143f6..def88aa 100644
+--- a/assets/global.d.ts
++++ b/assets/global.d.ts
+@@ -1,7 +1,9 @@
++import { Alpine } from "alpinejs";
+ import { LiveSocket } from "phoenix_live_view";
+
+ declare global {
+   interface Window {
+     liveSocket: LiveSocket;
++    Alpine: Alpine
+   }
+ }
+```
+
+On a normal web server this would be enough to get started with Alpine.js, but we are using LiveView to render our page. LiveView uses [morphdom](https://github.com/patrick-steele-idem/morphdom) to update the DOM from the server. This means that Alpine.js will not be able to see the changes made by LiveView and Alpine.js will lose track on the elements its attached to. This can be fixed using the `onBeforeElUpdated` liveSocket lifecycle hook to preserve the Alpine.js state.
+
+```diff
+diff --git a/assets/js/app.ts b/assets/js/app.ts
+index e12f521..8221d5d 100644
+--- a/assets/js/app.ts
++++ b/assets/js/app.ts
+@@ -23,7 +23,13 @@ import {LiveSocket} from "phoenix_live_view"
+ import topbar from "topbar"
+
+ let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content")
+-let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}})
++let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken},   dom: {
++    onBeforeElUpdated(from, to) {
++      if (from._x_dataStack) {
++        window.Alpine.clone(from, to)
++      }
++    }
++  }})
+
+ // Show progress bar on live navigation and form submits
+ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
+```
+
+This works great, but we can see that we have new errors in our type check:
+
+```bash
+js/app.ts:27:5 - error TS2322: Type '(from: HTMLElement, to: HTMLElement) => void' is not assignable to type '(fromEl: HTMLElement, toEl: HTMLElement) => boolean'.
+  Type 'void' is not assignable to type 'boolean'.
+
+27     onBeforeElUpdated(from, to) {
+       ~~~~~~~~~~~~~~~~~
+
+js/app.ts:28:16 - error TS2339: Property '_x_dataStack' does not exist on type 'HTMLElement'.
+
+28       if (from._x_dataStack) {
+                  ~~~~~~~~~~~~
+```
+
+The first error indicates that we need to return a boolean from the lifecycle hook rather than returning nothing (`void`), so we can `return false` to fix that error. For the following error, we can use one of the type declarations provided by `@types/alpinejs` in order to create an [intersection type](https://www.typescriptlang.org/docs/handbook/2/objects.html#intersection-types) of `HTMLElement` with Alpine.js' augmentations. To do this, we would need to modify our `app.ts` with the following:
+
+```diff
+diff --git a/assets/js/app.ts b/assets/js/app.ts
+index e12f521..e8b8468 100644
+--- a/assets/js/app.ts
++++ b/assets/js/app.ts
+@@ -23,7 +23,15 @@ import {LiveSocket} from "phoenix_live_view"
+ import topbar from "topbar"
+
+ let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content")
+-let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}})
++let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken},   dom: {
++    onBeforeElUpdated(from, to) {
++      const stack = (from as HTMLElement & XAttributes)._x_dataStack;
++      if (stack) {
++        Alpine.clone(from, to);
++      }
++      return false;
++    }
++  }})
+
+ // Show progress bar on live navigation and form submits
+ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
+@@ -40,6 +48,6 @@ liveSocket.connect()
+ window.liveSocket = liveSocket
+
+ // Import and initialize Alpine.js
+-import Alpine from "alpinejs";
++import Alpine, { XAttributes } from "alpinejs";
+ window.Alpine = Alpine;
+ Alpine.start();
+```
