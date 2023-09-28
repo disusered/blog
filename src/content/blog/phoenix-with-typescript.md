@@ -21,7 +21,7 @@ I've been working with Phoenix 1.7 for a few months now using the default JavaSc
 
 Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using esbuild to transpile the TypeScript code to JavaScript, I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development. For this blog post, I will be starting with a fresh Phoenix 1.7 project.
 
-I also want to go beyond the typical "Hello World" example and show how to use TypeScript with Phoenix LiveView. I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as Alpine.js which is commonly used with Phoenix for client-side interactivity.
+I also want to go beyond the typical "Hello World" example and show how to use TypeScript with Phoenix LiveView. I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as [Alpine.js](https://alpinejs.dev/) which is commonly used with Phoenix for client-side interactivity.
 
 ## Create a Phoenix 1.7 project
 
