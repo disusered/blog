@@ -8,4 +8,9 @@ import robotsTxt from "astro-robots-txt";
 export default defineConfig({
   site: SITE_URL,
   integrations: [mdx(), sitemap(), robotsTxt()],
+  markdown: {
+    shikiConfig: {
+      theme: "rose-pine-moon",
+    },
+  },
 });
