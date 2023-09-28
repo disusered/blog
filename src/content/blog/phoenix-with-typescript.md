@@ -82,4 +82,4 @@ mix phx.server
 
 We now have a working Phoenix application! You can visit [`localhost:4000`](http://localhost:4000) from your browser to see the default Phoenix welcome page.
 
-![A local image](./phoenix-with-typescript-new-project.png)
+![A screenshot of a new Phoenix project](./phoenix-with-typescript-new-project.png)
