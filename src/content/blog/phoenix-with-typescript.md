@@ -36,7 +36,7 @@ mix archive.install hex phx_new
 mix phx.new phoenix_typescript
 ```
 
-After accepting the defaults, we need to configure the database in `config/dev.exs` and initialize the database. I will be using PostgreSQL, but you can use any database you want. I will be using Docker Compose to run PostgreSQL, but you can use any method you want. The following example will use the default values scaffolded by Phoenix, but you may want to change these values to match your environment.
+After accepting the defaults, we need to configure the database in `config/dev.exs` and initialize the database. I will be using PostgreSQL, but you can use any database you want. I will be using Docker Compose to run PostgreSQL, but you can use any method you want. The following example will use the default values scaffolded by Phoenix, but you may want to change these values to match our environment.
 
 ```sh
 # Go to the Phoenix directory
@@ -46,7 +46,7 @@ cd phoenix_typescript
 touch docker-compose.yaml
 ```
 
-You can copy the following code into your `docker-compose.yaml` file.
+We can copy the following code into our `docker-compose.yaml` file.
 
 ```yaml
 version: "3.9"
@@ -80,6 +80,6 @@ mix ecto.create
 mix phx.server
 ```
 
-We now have a working Phoenix application! You can visit [`localhost:4000`](http://localhost:4000) from your browser to see the default Phoenix welcome page.
+We now have a working Phoenix application! You can visit [`localhost:4000`](http://localhost:4000) from our browser to see the default Phoenix welcome page.
 
 ![A screenshot of a new Phoenix project](./phoenix-with-typescript-new-project.png)
