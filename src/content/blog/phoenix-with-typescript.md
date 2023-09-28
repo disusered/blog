@@ -1,6 +1,6 @@
 ---
 title: "Using TypeScript in Phoenix 1.7"
-description: "My experience using TypeScript in Phoenix 1.7 using ESBuild"
+description: "My experience using TypeScript in Phoenix 1.7 using esbuild"
 pubDate: "Sept 27 2023"
 tags:
   [
@@ -14,12 +14,12 @@ tags:
     "docker",
   ]
 heroImage: "./phoenix-with-typescript.jpg"
-heroImageAlt: "The logos for the Phoenix Framework, TypeScript, and ESBuild"
+heroImageAlt: "The logos for the Phoenix Framework, TypeScript, and esbuild"
 ---
 
 I've been working with Phoenix 1.7 for a few months now using the default JavaScript setup, but as the complexity of the front-end has grown, I've been looking for ways to improve the developer experience. I've been using TypeScript for a few years now, and I've been very happy with it, so I decided to try to use TypeScript in my Phoenix project.
 
-Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using ESBuild to transpile the TypeScript code to JavaScript, I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development. For this blog post, I will be starting with a fresh Phoenix 1.7 project.
+Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using esbuild to transpile the TypeScript code to JavaScript, I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development. For this blog post, I will be starting with a fresh Phoenix 1.7 project.
 
 I also want to go beyond the typical "Hello World" example and show how to use TypeScript with Phoenix LiveView. I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as Alpine.js which is commonly used with Phoenix for client-side interactivity.
 
@@ -104,7 +104,7 @@ config :esbuild,
 
 We can see that the bundler has certain options set, such as the target and output directory. All modern JavaScript syntax is supported by esbuild, but newer syntax might not be supported by certain browsers. By setting `--target=es2017`, we tell esbuild to convert newer syntax to older syntax [as appropriate](https://esbuild.github.io/content-types/#javascript). We can also see that the input file will be `app.js`, when we migrate to TypeScript we will have to change this to `app.ts`.
 
-ESBuild supports TypeScript out of the box, so we don't need to install any additional dependencies. We can rename `app.js` to `app.ts` and update the configuration to use `app.ts` as the input file.
+esbuild supports TypeScript out of the box, so we don't need to install any additional dependencies. We can rename `app.js` to `app.ts` and update the configuration to use `app.ts` as the input file.
 
 ```bash
 # Rename app.js to app.ts
@@ -127,7 +127,7 @@ index 4eae6f7..aeffbb0 100644
    ]
 ```
 
-Afterwards we can start the server and visit [`localhost:4000`](http://localhost:4000) to see the same welcome page as before. We can also see that the JavaScript code is still working as expected. This is because ESBuild does handle TypeScript but [does not handle any type checking itself](https://esbuild.github.io/content-types/#typescript), we still need to run `tsc --noEmit` to handle type checking.
+Afterwards we can start the server and visit [`localhost:4000`](http://localhost:4000) to see the same welcome page as before. We can also see that the JavaScript code is still working as expected. This is because esbuild does handle TypeScript but [does not handle any type checking itself](https://esbuild.github.io/content-types/#typescript), we still need to run `tsc --noEmit` to handle type checking.
 
 In order to run `tsc`, we need the TypesScript compiler. We can install it with `npm` into our `assets` directory. Before that, we want to initialize a `package.json`. Then we want to save it as a development dependency `package.json`. We can do this by running the following command:
 
@@ -156,7 +156,7 @@ The content of the `package.json` is very minimal, only listing our dev dependen
 }
 ```
 
-Finally we need to create a minimal TypeScript configuration file. ESBuild does not require a `tsconfig.json` file, but the TypeScript compiler does. We can create a minimal config file by running `npx --prefix assets tsc --init` in our `assets` directory.
+Finally we need to create a minimal TypeScript configuration file. esbuild does not require a `tsconfig.json` file, but the TypeScript compiler does. We can create a minimal config file by running `npx --prefix assets tsc --init` in our `assets` directory.
 
 ```bash
 # npx does not support the --prefix flag, so we need to cd into the assets directory
@@ -169,7 +169,7 @@ npx tsc --init
 cd ..
 ```
 
-We can leave all the values to their defaults except for the `target` option. We want to set the `target` to `es2017` to match the target used by ESBuild.
+We can leave all the values to their defaults except for the `target` option. We want to set the `target` to `es2017` to match the target used by esbuild.
 
 ```diff
 diff --git a/assets/tsconfig.json b/assets/tsconfig.json
@@ -256,4 +256,116 @@ index e702834..591530f 100644
  # ## SSL Support
 ```
 
-Now if we run `mix phx.server` we can see that the type check is running in the background. If we make a change to `app.ts` and save it, we can see that the type check runs automatically and the errors are displayed in the console. If we open the page in the browser, we can see that the JavaScript code is still working as expected. ESBuild is not blocked by the type check, it will still bundle the JavaScript code and reload the page as expected.
+Now if we run `mix phx.server` we can see that the type check is running in the background. If we make a change to `app.ts` and save it, we can see that the type check runs automatically and the errors are displayed in the console. If we open the page in the browser, we can see that the JavaScript code is still working as expected. esbuild is not blocked by the type check, it will still bundle the JavaScript code and reload the page as expected.
+
+## Fixing TypeScript errors
+
+The first two errors we see in `app.ts` are related to the type declarations for Phoenix and Phoenix Live View.
+
+```bash
+js/app.ts:21:22 - error TS2307: Cannot find module 'phoenix' or its corresponding type declarations.
+
+21 import {Socket} from "phoenix"
+
+js/app.ts:22:26 - error TS2307: Cannot find module 'phoenix_live_view' or its corresponding type declarations.
+
+22 import {LiveSocket} from "phoenix_live_view"
+```
+
+Since these libraries don't ship their own type declarations, we need to look for them elsewhere. Fortunately, the [DefinitelyTyped](https://definitelytyped.github.io/) project has declarations for both of these libraries. We can install them with `npm` as dev dependencies.
+
+```bash
+# Install type declarations to dev dependencies
+npm --prefix assets install @types/phoenix @types/phoenix_live_view --save-dev
+```
+
+With this, the errors are gone. We can also see that our `package.json` and `package-lock.json` have been updated with these dependencies. We can move on the the next error. We can see it is related to the `topbar` library used to display a progress bar on the top of the screen.
+
+```bash
+js/app.ts:23:20 - error TS7016: Could not find a declaration file for module '../vendor/topbar'. '/Users/carlos/Development/phoenix_typescript/assets/vendor/topbar.js' implicitly has an 'any' type.
+
+23 import topbar from "../vendor/topbar"
+```
+
+This library is loaded from the `assets/vendor/` directory, and is part of the default Phoenix installation. Let's remove this hard-coded library and fetch the latest version from NPM:
+
+```bash
+# Remove the existing library file
+rm assets/vendor/topbar.js
+
+# Install topbar from NPM
+npm --prefix assets install topbar --save
+```
+
+We also need to update the reference to the library in `app.ts`:
+
+```diff
+diff --git a/assets/js/app.ts b/assets/js/app.ts
+index df0cdd9..70c1398 100644
+--- a/assets/js/app.ts
++++ b/assets/js/app.ts
+@@ -20,7 +20,7 @@ import "phoenix_html"
+ // Establish Phoenix Socket and LiveView configuration.
+ import {Socket} from "phoenix"
+ import {LiveSocket} from "phoenix_live_view"
+-import topbar from "../vendor/topbar"
++import topbar from "topbar"
+
+ let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+ let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}})
+```
+
+We can see that the error no longer appears in our type check. But why? It turns out the newer version of the library is already typed, so we don't need to install any additional type declarations. We are now down to 2 errors, the next one being a null check:
+
+```bash
+js/app.ts:25:17 - error TS2531: Object is possibly 'null'.
+
+25 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+```
+
+Our script does not know if the `querySelector` will return a value or not, so we need to check for `null` before calling `getAttribute`. We can fix this by adding a null check to the code. We'll use the [optional chaining operator](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining) to do this. This is an ES2020 feature, but thanks to esbuild with the `--target=es2017` flag, we can use it without any additional configuration.
+
+```diff
+diff --git a/assets/js/app.ts b/assets/js/app.ts
+index 70c1398..653efb4 100644
+--- a/assets/js/app.ts
++++ b/assets/js/app.ts
+@@ -22,7 +22,7 @@ import {Socket} from "phoenix"
+ import {LiveSocket} from "phoenix_live_view"
+ import topbar from "topbar"
+
+-let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
++let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content")
+ let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken}})
+
+ // Show progress bar on live navigation and form submits
+```
+
+We are down to the last error about the `liveSocket` variable not existing in the global browser scope:
+
+```bash
+js/app.ts:40:8 - error TS2339: Property 'liveSocket' does not exist on type 'Window & typeof globalThis'.
+
+40 window.liveSocket = liveSocket
+```
+
+To fix this, we will need to add a type declaration for the `liveSocket` variable. We can do this by adding a `global.d.ts` file to our `assets` directory. This file will be automatically loaded by the TypeScript compiler, and we can add our type declaration to it.
+
+```bash
+# Create a global.d.ts file
+touch assets/global.d.ts
+```
+
+We now need to add the type declaration for the `liveSocket` variable. We can do this by adding the following code to our `global.d.ts` file:
+
+```typescript
+import { LiveSocket } from "phoenix_live_view";
+
+declare global {
+  interface Window {
+    liveSocket: LiveSocket;
+  }
+}
+```
+
+We can see that the error is gone, and we have a working TypeScript setup!
