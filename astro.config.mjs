@@ -4,6 +4,7 @@ import sitemap from "@astrojs/sitemap";
 import { SITE_URL } from "./src/consts";
 import robotsTxt from "astro-robots-txt";
 import remarkToc from "remark-toc";
+import { rehypeAccessibleEmojis } from "rehype-accessible-emojis";
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
   integrations: [mdx(), sitemap(), robotsTxt()],
   markdown: {
     remarkPlugins: [remarkToc],
+    rehypePlugins: [rehypeAccessibleEmojis],
     shikiConfig: {
       theme: "rose-pine-moon",
     },
