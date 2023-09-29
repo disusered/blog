@@ -530,3 +530,11 @@ index e9fc48d..358ab0c 100644
 If everything is working correctly, we should see the following:
 
 ![A screenshot of our Phoenix project with Alpine.js](./phoenix-with-typescript-finished.png)
+
+## Typed Phoenix Hooks
+
+TODO
+
+## Deployment
+
+TODO
