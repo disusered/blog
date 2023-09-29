@@ -18,6 +18,10 @@ heroImage: "./phoenix-with-typescript.jpg"
 heroImageAlt: "The logos for the Phoenix Framework, TypeScript, and esbuild"
 ---
 
+## Table of Contents
+
+## Introduction
+
 I've been working with Phoenix 1.7 for a few months now using the default JavaScript setup, but as the complexity of the front-end has grown, I've been looking for ways to improve the developer experience. I've been using TypeScript for a few years now, and I've been very happy with it, so I decided to try to use TypeScript in my Phoenix project.
 
 Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using [esbuild](https://esbuild.github.io/) to transpile the TypeScript code to JavaScript and take advantage of the built-in tooling provided by the Phoenix Framework. I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development.
