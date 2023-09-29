@@ -20,9 +20,9 @@ heroImageAlt: "The logos for the Phoenix Framework, TypeScript, and esbuild"
 
 I've been working with Phoenix 1.7 for a few months now using the default JavaScript setup, but as the complexity of the front-end has grown, I've been looking for ways to improve the developer experience. I've been using TypeScript for a few years now, and I've been very happy with it, so I decided to try to use TypeScript in my Phoenix project.
 
-Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using esbuild to transpile the TypeScript code to JavaScript, I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development. For this blog post, I will be starting with a fresh Phoenix 1.7 project.
+Most of the information I found online was for older versions of Phoenix, so I decided to document my experience here. I will be using [esbuild](https://esbuild.github.io/) to transpile the TypeScript code to JavaScript and take advantage of the built-in tooling provided by the Phoenix Framework. I don't want to radically change the build process, I only want add the developer ergonomics I am used to from years of front-end development.
 
-I also want to go beyond the typical "Hello World" example and show how to use TypeScript with [Phoenix LiveView](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html). I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as [Alpine.js](https://alpinejs.dev/) which is commonly used with Phoenix for client-side interactivity.
+For this blog post, I will be starting with a fresh Phoenix 1.7 project. I also want to go beyond the typical "Hello World" example and show how to use TypeScript with [Phoenix LiveView](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html). I will be using the [Phoenix LiveView Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#phoenix_live_view_hooks) to add some interactivity to the page, as well as [Alpine.js](https://alpinejs.dev/) which is commonly used with Phoenix for client-side interactivity.
 
 ## Create a Phoenix 1.7 project
 
@@ -498,3 +498,31 @@ index e12f521..e8b8468 100644
  window.Alpine = Alpine;
  Alpine.start();
 ```
+
+To finish up, we can add a simple Alpine.js component to our application and see it in action. Taking inspiration from the [Alpine.js documentation](https://alpinejs.dev/start-here), we can add the following code to our home page template:
+
+```diff
+diff --git a/lib/phoenix_typescript_web/controllers/page_html/home.html.heex b/lib/phoenix_typescript_web/controllers/page_html/home.html.heex
+index e9fc48d..358ab0c 100644
+--- a/lib/phoenix_typescript_web/controllers/page_html/home.html.heex
++++ b/lib/phoenix_typescript_web/controllers/page_html/home.html.heex
+@@ -46,8 +46,13 @@
+         fill="#FD4F00"
+       />
+     </svg>
++
+     <h1 class="text-brand mt-10 flex items-center text-sm font-semibold leading-6">
+-      Phoenix Framework
++      <span
++        x-data="{ message: 'I ❤️  Phoenix Framework with Alpine and TypeScript' }"
++        x-text="message"
++      >
++      </span>
+       <small class="bg-brand/5 text-[0.8125rem] ml-3 rounded-full px-2 font-medium leading-6">
+         v<%= Application.spec(:phoenix, :vsn) %>
+       </small>
+```
+
+If everything is working correctly, we should see the following:
+
+![A screenshot of our Phoenix project with Alpine.js](./phoenix-with-typescript-finished.png)
