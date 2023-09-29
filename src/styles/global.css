@@ -197,3 +197,22 @@ a.tag:hover {
   /* added line to stop words getting smushed together (as they go onto seperate lines and some screen readers do not understand line feeds as a space */
   white-space: nowrap;
 }
+
+h2:hover > .anchor-link,
+h3:hover > .anchor-link,
+h4:hover > .anchor-link,
+h5:hover > .anchor-link,
+h6:hover > .anchor-link {
+  display: inline;
+}
+
+.anchor-link {
+  color: var(--accent);
+  margin-left: 0.5rem;
+  display: none;
+}
+
+.anchor-icon svg {
+  height: 1.5rem;
+  width: auto;
+}
