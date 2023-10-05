@@ -531,10 +531,97 @@ If everything is working correctly, we should see the following:
 
 ![A screenshot of our Phoenix project with Alpine.js](./phoenix-with-typescript-finished.png)
 
-## Typed Phoenix Hooks
+## Typed client Hooks
+
+[Client Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#client-hooks-via-phx-hook) are a way for Phoenix to run client-side JavaScript when an element is added, updated, or removed by the server. For this, we need to add a `phx-hook` attribute to the element, as well as a unique `id`. For example, we can run a hook automatically on page load by adding the following to our `home.html.heex` template:
+
+```diff
+diff --git a/lib/phoenix_typescript_web/controllers/page_html/home.html.heex b/lib/phoenix_typescript_web/controllers/page_html/home.html.heex
+index 358ab0c..dcd7e3f 100644
+--- a/lib/phoenix_typescript_web/controllers/page_html/home.html.heex
++++ b/lib/phoenix_typescript_web/controllers/page_html/home.html.heex
+@@ -47,7 +47,11 @@
+       />
+     </svg>
+
+-    <h1 class="text-brand mt-10 flex items-center text-sm font-semibold leading-6">
++    <h1
++      phx-hook="HomeHeader"
++      id="header"
++      class="text-brand mt-10 flex items-center text-sm font-semibold leading-6"
++    >
+       <span
+         x-data="{ message: 'I ❤️  Phoenix Framework with Alpine and TypeScript' }"
+         x-text="message"
+```
+
+When loading the home page of our Phoenix server, we'll see... nothing yet[^1]! That's because we haven't defined the hook yet. Let's add it to our `app.ts` file:
+
+```diff
+diff --git a/assets/js/app.ts b/assets/js/app.ts
+index e8b8468..13b58ad 100644
+--- a/assets/js/app.ts
++++ b/assets/js/app.ts
+@@ -22,8 +22,19 @@ import {Socket} from "phoenix"
+ import {LiveSocket} from "phoenix_live_view"
+ import topbar from "topbar"
+
++// Add example hook
++const Hooks = {
++  HomeHeader: {
++    mounted() {
++      console.log("HomeHeader mounted on element: ", this.el)
++    },
++  },
++};
++
+ let csrfToken = document.querySelector("meta[name='csrf-token']")?.getAttribute("content")
+-let liveSocket = new LiveSocket("/live", Socket, {params: {_csrf_token: csrfToken},   dom: {
++let liveSocket = new LiveSocket("/live", Socket, {
++  hooks: Hooks,
++  params: {_csrf_token: csrfToken},
++  dom: {
+     onBeforeElUpdated(from, to) {
+       const stack = (from as HTMLElement & XAttributes)._x_dataStack;
+       if (stack) {
+```
+
+While this works, we get a type error in our type check:
+
+```bash
+js/app.ts:29:59 - error TS2339: Property 'el' does not exist on type '{ mounted(): void; }'.
+
+29       console.log("HomeHeader mounted on element: ", this.el)
+                                                             ~~
+```
+
+This can be fixed by using another type declaration from `@types/phoenix_live_view` along with TypeScript's `Partial` utility type, which sets all properties of a type to optional. We can add the following to our `app.ts` file to get rid of the error and have a fully typed hook
+
+```diff
+diff --git a/assets/js/app.ts b/assets/js/app.ts
+index fbccd94..9768e86 100644
+--- a/assets/js/app.ts
++++ b/assets/js/app.ts
+@@ -19,11 +19,11 @@
+ import "phoenix_html"
+ // Establish Phoenix Socket and LiveView configuration.
+ import {Socket} from "phoenix"
+-import {LiveSocket} from "phoenix_live_view"
++import {LiveSocket, ViewHook} from "phoenix_live_view"
+ import topbar from "topbar"
+
+ // Add example hook
+-const Hooks = {
++const Hooks: { [name: string]: Partial<ViewHook>} = {
+   HomeHeader: {
+     mounted() {
+       console.log("HomeHeader mounted on element: ", this.el)
+```
+
+## Typed push events
+
+The final difficulty I encountered when working with TypeScript was how to type events sent from Phoenix to the front-end through LiveView's [push_event](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html#push_event/3).
 
 TODO
 
-## Deployment
-
-TODO
+[^1]: Actually, we will see an error in the console saying `unknown hook found for "HomeHeader"`
