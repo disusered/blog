@@ -425,7 +425,7 @@ index 82143f6..def88aa 100644
  declare global {
    interface Window {
      liveSocket: LiveSocket;
-+    Alpine: Alpine
++    Alpine: Alpine;
    }
  }
 ```
@@ -555,7 +555,7 @@ index 358ab0c..dcd7e3f 100644
          x-text="message"
 ```
 
-When loading the home page of our Phoenix server, we'll see... nothing yet[^1]! That's because we haven't defined the hook yet. Let's add it to our `app.ts` file:
+When loading the home page of our Phoenix server, we'll see... nothing[^1]! That's because we haven't defined the hook yet. Let's add it to our `app.ts` file:
 
 ```diff
 diff --git a/assets/js/app.ts b/assets/js/app.ts
@@ -618,12 +618,97 @@ index fbccd94..9768e86 100644
        console.log("HomeHeader mounted on element: ", this.el)
 ```
 
-## Typed push events
+## Typed client-server communication
 
-The final difficulty I encountered when working with TypeScript was how to type events sent from Phoenix to the front-end through LiveView's [push_event](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html#push_event/3).
+The final issue I encountered when working with TypeScript was how to type events sent from Phoenix to the front-end through LiveView's [push_event](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html#push_event/3). Let's add a route with a LiveView controller to our `router.ex` file:
 
-TODO
+```diff
+diff --git a/lib/phoenix_typescript_web/router.ex b/lib/phoenix_typescript_web/router.ex
+index da82283..bbfea43 100644
+--- a/lib/phoenix_typescript_web/router.ex
++++ b/lib/phoenix_typescript_web/router.ex
+@@ -18,6 +18,7 @@ defmodule PhoenixTypescriptWeb.Router do
+     pipe_through :browser
+
+     get "/", PageController, :home
++    live "/demo", DemoController
+   end
+
+   # Other scopes may use custom stacks.
+```
+
+We also need to add the controller in `lib/phoenix_typescript_web/controllers/demo_controller.ex`:
+
+```elixir
+defmodule PhoenixTypescriptWeb.DemoController do
+  use PhoenixTypescriptWeb, :live_view
+
+  def handle_event("click", _, socket) do
+    {:noreply,
+     socket
+     |> push_event("demo-event", %{name: "World"})}
+  end
+
+  def render(assigns) do
+    ~H"""
+    <button
+      type="button"
+      class="rounded-md bg-black px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      phx-click="click"
+    >
+      Click me
+    </button>
+    """
+  end
+end
+```
+
+We also need to add the event listener in our `app.ts` file, the following can be added to the end of the file:
+
+```typescript
+// Add handler for custom event
+window.addEventListener(`phx:demo-event`, async (e) => {
+  console.log(`Hello ${e.detail.name}`);
+});
+```
+
+If we open the new route in our browser, we see our button and if we click on it can it works as expected:
+
+![A screenshot of the browser with the developer tools console showing our output](./phoenix-with-typescript-button.png)
+
+This works, but we get a type error in our type check:
+
+```bash
+js/app.ts:72:26 - error TS2339: Property 'detail' does not exist on type 'Event'.
+
+72   console.log(`Hello ${e.detail.name}`);
+                            ~~~~~~
+```
+
+Events handled by the front-end are of type [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) and are unique in that they are typed according to the event name. We can use this to our advantage by creating a type declaration for our event. We can add the following to our `global.d.ts` file:
+
+```diff
+diff --git a/assets/global.d.ts b/assets/global.d.ts
+index 71cae7a..09bfbb2 100644
+--- a/assets/global.d.ts
++++ b/assets/global.d.ts
+@@ -6,4 +6,8 @@ declare global {
+     liveSocket: LiveSocket;
+     Alpine: Alpine;
+   }
++
++  interface WindowEventMap {
++    "phx:demo-event": CustomEvent<{ name: string }>;
++  }
+ }
+```
+
+With this declaration, we can see that the type error is gone and we have a fully typed client-server communication, including autocompletion in our IDE when accessing the `e.detail` property.
+
+## Conclusion
+
+I had to comb through many different sources to get this setup up and running, so I hope having it all in one place will help other Phoenix developers to get started with TypeScript in their projects. In a future post, I will cover how to deploy this setup to production. If you have any questions or suggestions, feel free to reach out to me on [Twitter](https://twitter.com/disusered) or [Mastodon](https://tilde.zone/@disusered).
 
 ---
 
-[^1]: Actually, we will see an error in the console saying `unknown hook found for "HomeHeader"`
+[^1]: Nothing in the web page, but we will see an error in the console saying `unknown hook found for "HomeHeader"`
