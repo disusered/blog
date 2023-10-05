@@ -531,7 +531,7 @@ If everything is working correctly, we should see the following:
 
 ![A screenshot of our Phoenix project with Alpine.js](./phoenix-with-typescript-finished.png)
 
-## Typed client Hooks
+## Typed client hooks
 
 [Client Hooks](https://hexdocs.pm/phoenix_live_view/js-interop.html#client-hooks-via-phx-hook) are a way for Phoenix to run client-side JavaScript when an element is added, updated, or removed by the server. For this, we need to add a `phx-hook` attribute to the element, as well as a unique `id`. For example, we can run a hook automatically on page load by adding the following to our `home.html.heex` template:
 
@@ -623,5 +623,7 @@ index fbccd94..9768e86 100644
 The final difficulty I encountered when working with TypeScript was how to type events sent from Phoenix to the front-end through LiveView's [push_event](https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html#push_event/3).
 
 TODO
+
+---
 
 [^1]: Actually, we will see an error in the console saying `unknown hook found for "HomeHeader"`
