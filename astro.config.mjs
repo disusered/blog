@@ -1,4 +1,5 @@
 import { defineConfig } from "astro/config";
+import { unified } from "@astrojs/markdown-remark";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import { SITE_URL } from "./src/consts";
@@ -7,7 +8,8 @@ import remarkToc from "remark-toc";
 import { rehypeAccessibleEmojis } from "rehype-accessible-emojis";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
-import { h, s } from "hastscript";
+import { toString } from "hast-util-to-string";
+import { h } from "hastscript";
 
 // The following configuration for rehype-autolink-headings was taken from https://github.com/withastro/docs/blob/main/astro.config.ts
 const AnchorLinkIcon = h(
@@ -20,7 +22,7 @@ const AnchorLinkIcon = h(
       height: 16,
       version: 1.1,
       viewBox: "0 0 16 16",
-      xlmns: "http://www.w3.org/2000/svg",
+      xmlns: "http://www.w3.org/2000/svg",
     },
     h("path", {
       fillRule: "evenodd",
@@ -34,7 +36,7 @@ const createSROnlyLabel = (text) => {
   return h(
     "span",
     { "is:raw": true, class: "sr-only" },
-    `${`Section titled ${escape(text)}`} ${escape(text)}`,
+    `Section titled ${text}`,
   );
 };
 
@@ -43,27 +45,29 @@ export default defineConfig({
   site: SITE_URL,
   integrations: [mdx(), sitemap(), robotsTxt()],
   markdown: {
-    remarkPlugins: [remarkToc],
-    rehypePlugins: [
-      rehypeSlug,
-      [
-        rehypeAutolinkHeadings,
-        {
-          properties: { class: "anchor-link" },
-          behavior: "append",
-          group: ({ tagName }) =>
-            h("div", {
-              tabIndex: -1,
-              class: `heading-wrapper level-${tagName}`,
-            }),
-          content: (heading) => [
-            AnchorLinkIcon,
-            createSROnlyLabel(toString(heading)),
-          ],
-        },
+    processor: unified({
+      remarkPlugins: [remarkToc],
+      rehypePlugins: [
+        rehypeSlug,
+        [
+          rehypeAutolinkHeadings,
+          {
+            properties: { class: "anchor-link" },
+            behavior: "append",
+            group: ({ tagName }) =>
+              h("div", {
+                tabIndex: -1,
+                class: `heading-wrapper level-${tagName}`,
+              }),
+            content: (heading) => [
+              AnchorLinkIcon,
+              createSROnlyLabel(toString(heading)),
+            ],
+          },
+        ],
+        rehypeAccessibleEmojis,
       ],
-      rehypeAccessibleEmojis,
-    ],
+    }),
     shikiConfig: {
       theme: "rose-pine-moon",
     },
