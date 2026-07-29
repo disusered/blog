@@ -14,9 +14,25 @@ export default [
     },
   },
   {
+    files: [
+      "scripts/**/*.{js,mjs,cjs,ts}",
+      "tests/**/*.{js,mjs,cjs,ts}",
+      "src/atproto-publisher.ts",
+    ],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
     files: ["**/*.d.ts"],
     rules: {
       "@typescript-eslint/triple-slash-reference": "off",
+    },
+  },
+  {
+    files: ["src/lexicons/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ];

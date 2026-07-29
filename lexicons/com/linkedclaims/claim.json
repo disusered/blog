@@ -1,0 +1,198 @@
+{
+  "id": "com.linkedclaims.claim",
+  "defs": {
+    "main": {
+      "key": "tid",
+      "type": "record",
+      "record": {
+        "type": "object",
+        "required": [
+          "subject",
+          "claimType",
+          "createdAt"
+        ],
+        "properties": {
+          "stars": {
+            "type": "integer",
+            "maximum": 5,
+            "minimum": 1,
+            "description": "Star rating (for rating-type claims)."
+          },
+          "aspect": {
+            "type": "string",
+            "description": "The specific aspect being rated or assessed (e.g., quality, reliability, timeliness)."
+          },
+          "object": {
+            "type": "string",
+            "description": "Optional object of the claim (e.g., skill name, credential type, rating category)."
+          },
+          "source": {
+            "ref": "#claimSource",
+            "type": "ref",
+            "description": "Where this claim comes from — a person, a website, a document. For example: 'I saw this on Wikipedia' (source.uri = the Wikipedia URL), or 'My colleague told me' (source.uri = their DID, howKnown = SECOND_HAND). Source is not evidence — it's the origin of the information."
+          },
+          "subject": {
+            "type": "string",
+            "format": "uri",
+            "description": "The entity this claim is about. Can be any URI: HTTPS URL, DID, AT-URI, IPFS CID, or another claim's claimUri (for claims-about-claims such as endorsements or disputes)."
+          },
+          "claimUri": {
+            "type": "string",
+            "format": "uri",
+            "description": "Persistent URI identity of this claim per the DIF Labs LinkedClaims spec. This is how other claims reference this one (by using this URI as their subject). May be an AT-URI if the claim originated on ATProto, or an HTTPS URL or other URI if it originated elsewhere. Must be a well-formed, persistent, dereferenceable URI."
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "ref": "#evidenceItem",
+              "type": "ref"
+            },
+            "description": "Supporting materials provided to back up this claim — photos, videos, screenshots, documents, links. For example: source might be a Wikipedia article, evidence is the screenshot you took of it. Source might be you (first-hand), evidence is the video you recorded. Each item has a URI and optionally a content hash for integrity."
+          },
+          "claimType": {
+            "type": "string",
+            "description": "Category of claim. Open vocabulary — common values include skill, credential, impact, endorsement, dispute, rating, review, membership, supersedes, revocation."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When this record was created."
+          },
+          "respondAt": {
+            "type": "string",
+            "format": "uri",
+            "description": "URI where endorsements, disputes, or other responses to this claim may be sent. Per the LinkedClaims spec, MAY behave like an ActivityPub inbox."
+          },
+          "statement": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Human-readable explanation of the claim."
+          },
+          "confidence": {
+            "type": "string",
+            "maximum": 1,
+            "minimum": 0,
+            "description": "Signer's confidence in this claim (0-1)."
+          },
+          "effectiveDate": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the claim became/becomes true (may differ from createdAt)."
+          },
+          "embeddedProof": {
+            "ref": "#embeddedProof",
+            "type": "ref",
+            "description": "For claims signed by external methods (MetaMask, aca-py, Digital Bazaar, etc.) before being published to ATProto. Preserves the original signer identity when the ATProto repo owner differs from the claim signer."
+          }
+        }
+      },
+      "description": "A verifiable claim about any URI-addressable subject."
+    },
+    "claimSource": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI of the evidence (HTTPS URL, IPFS CID, AT-URI, etc.)."
+        },
+        "author": {
+          "type": "string",
+          "format": "uri",
+          "description": "Original author of the evidence (if different from claim signer)."
+        },
+        "curator": {
+          "type": "string",
+          "format": "uri",
+          "description": "Entity that curated/surfaced this evidence."
+        },
+        "howKnown": {
+          "type": "string",
+          "description": "How the signer knows this claim to be true.",
+          "knownValues": [
+            "FIRST_HAND",
+            "SECOND_HAND",
+            "WEB_DOCUMENT",
+            "VERIFIED_LOGIN",
+            "SIGNED_DOCUMENT",
+            "BLOCKCHAIN",
+            "RESEARCH",
+            "OPINION",
+            "OTHER"
+          ]
+        },
+        "dateObserved": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When the evidence was observed/collected."
+        },
+        "digestMultibase": {
+          "type": "string",
+          "description": "Multibase-encoded hash of the evidence content for integrity verification, per W3C VC Data Model 2.0 (e.g., zQm...)."
+        }
+      },
+      "description": "Where this claim comes from. A source can be a person (DID, URL), a website, a document, or any URI-addressable origin. Based on the cooperation.org/credentials/v1 ClaimSource vocabulary."
+    },
+    "evidenceItem": {
+      "type": "object",
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI of the evidence (HTTPS URL, IPFS CID, AT-URI, blob reference, etc.)."
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "MIME type of the evidence (e.g., image/jpeg, video/mp4, application/pdf)."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "What this evidence shows or contains."
+        },
+        "digestMultibase": {
+          "type": "string",
+          "description": "Multibase-encoded hash of the content for integrity verification (e.g., zQm...)."
+        }
+      },
+      "description": "A piece of supporting material for a claim — a photo, video, screenshot, document, or link. Evidence is what backs up the claim; source is where the claim comes from."
+    },
+    "embeddedProof": {
+      "type": "object",
+      "required": [
+        "type",
+        "verificationMethod",
+        "proofValue",
+        "created"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Signature suite type (e.g., EthereumEip712Signature2021, Ed25519Signature2020, JsonWebSignature2020)."
+        },
+        "created": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When the signature was created."
+        },
+        "proofValue": {
+          "type": "string",
+          "description": "The signature value (format depends on type)."
+        },
+        "proofPurpose": {
+          "type": "string",
+          "default": "assertionMethod",
+          "description": "Purpose of the proof (typically assertionMethod for claims)."
+        },
+        "verificationMethod": {
+          "type": "string",
+          "description": "DID or key identifier of the actual claim signer (e.g., did:pkh:eip155:1:0xABC..., did:key:z6Mk..., did:web:example.com)."
+        }
+      },
+      "description": "Cryptographic proof from external signing methods. Allows claims signed via MetaMask, aca-py, Digital Bazaar, etc. to be published on ATProto while preserving the original signer identity."
+    }
+  },
+  "$type": "com.atproto.lexicon.schema",
+  "lexicon": 1,
+  "description": "A LinkedClaim record per the DIF Labs LinkedClaims specification (https://identity.foundation/labs-linkedclaims/). Claims are immutable, signed assertions about any URI-addressable subject. Each claim has a persistent URI (claimUri) so other claims can reference it as their subject, enabling a cross-system web of trust. LinkedClaims flow on ATProto but are not exclusive to it — the claimUri may point to any system where the claim originated."
+}

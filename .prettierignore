@@ -3,3 +3,6 @@
 .astro
 node_modules
 dist
+lexicons.json
+lexicons/
+src/lexicons/

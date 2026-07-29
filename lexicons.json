@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "lexicons": [
+    "com.linkedclaims.claim"
+  ],
+  "resolutions": {
+    "com.linkedclaims.claim": {
+      "uri": "at://did:plc:xztctnvt5ycnsippd3orwqk7/com.atproto.lexicon.schema/com.linkedclaims.claim",
+      "cid": "bafyreiahb2ed2x5sqdm4mgbf5axqdctap7rrwvewcycbrsglzf5jsactay"
+    }
+  }
+}
