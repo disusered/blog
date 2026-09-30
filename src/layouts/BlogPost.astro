@@ -15,6 +15,7 @@ interface Props {
   heroImage?: ImageMetadata;
   heroImageAlt?: string;
   tags?: string[];
+  publicationHash?: string;
 }
 
 const {
@@ -25,6 +26,7 @@ const {
   heroImage,
   heroImageAlt,
   tags,
+  publicationHash,
 } = Astro.props;
 
 const schema = {
@@ -54,6 +56,11 @@ const image =
 
 <html lang="en">
   <head>
+    {
+      publicationHash && (
+        <meta name="polychrome-publication" content={publicationHash} />
+      )
+    }
     <BaseHead
       title={title + " | " + SITE_TITLE}
       description={description}

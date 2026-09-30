@@ -9,8 +9,8 @@ const imageWithAlt = (image: ImageFunction) =>
   });
 
 const noImage = z.object({
-  heroImage: z.undefined(),
-  heroImageAlt: z.undefined(),
+  heroImage: z.undefined().optional(),
+  heroImageAlt: z.undefined().optional(),
 });
 
 const blog = defineCollection({
@@ -23,6 +23,10 @@ const blog = defineCollection({
         pubDate: z.coerce.date(),
         updatedDate: z.coerce.date().optional(),
         tags: z.array(z.string()).optional(),
+        publicationHash: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .optional(),
       })
       .and(imageWithAlt(image).or(noImage)),
 });

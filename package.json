@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "publish:atproto": "node scripts/publish-atproto.ts",
+    "publish:blog": "node scripts/publish-blog.ts",
     "test:publisher": "node --test tests/atproto-publisher.test.ts",
     "preview": "astro preview",
     "astro": "astro"
