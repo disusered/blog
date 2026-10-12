@@ -47,7 +47,7 @@ export function publisherGit(options: { clone: string; key: string }) {
     "-c",
     "user.name=Portal publisher",
     "-c",
-    "user.email=publisher@disusered.com",
+    "user.email=246254+disusered@users.noreply.github.com",
     "-c",
     "gpg.format=ssh",
     "-c",
