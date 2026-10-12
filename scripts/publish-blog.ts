@@ -2,6 +2,14 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { canonical } from "../src/publication-hash.ts";
+import {
+  documentUri,
+  validateEnvelope,
+  type PublicationEnvelope,
+  type PublicPost,
+} from "../src/publication.ts";
+export { canonical } from "../src/publication-hash.ts";
 
 type Asset = { path: string; sha256: string; hex: string };
 type Post = {
@@ -23,19 +31,21 @@ export type Envelope = {
   payloadSha256: string;
   envelopeSha256: string;
 };
-export function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object")
-    return `{${Object.entries(value)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
-      .join(",")}}`;
-  return JSON.stringify(value);
-}
 const hash = (value: string | Buffer) =>
   createHash("sha256").update(value).digest("hex");
 
-export function publicFiles(envelope: Envelope): Map<string, Buffer> {
+export function publicFiles(
+  envelope: Envelope | PublicationEnvelope,
+): Map<string, Buffer> {
+  if (envelope.schemaVersion === "polychrome.publication-envelope.v2") {
+    const approved = envelope as PublicationEnvelope;
+    validateEnvelope(approved);
+    return renderPost(
+      approved.payload,
+      approved.payloadSha256,
+      documentUri(approved),
+    );
+  }
   const { envelopeSha256, ...core } = envelope;
   const post = envelope.payload;
   if (
@@ -62,7 +72,11 @@ export function previewFiles(preview: {
   return renderPost(preview.payload, preview.payloadSha256);
 }
 
-function renderPost(post: Post, payloadSha256: string): Map<string, Buffer> {
+function renderPost(
+  post: Post | PublicPost,
+  payloadSha256: string,
+  atUri?: string,
+): Map<string, Buffer> {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(post.slug))
     throw new Error("Invalid blog slug.");
   for (const text of [post.title, post.description, post.body, ...post.tags]) {
@@ -79,13 +93,26 @@ function renderPost(post: Post, payloadSha256: string): Map<string, Buffer> {
     pubDate: post.pubDate,
     tags: post.tags,
     publicationHash: payloadSha256,
+    ...(post.schemaVersion === "polychrome.public-post.v2" &&
+    "publication" in post
+      ? {
+          media: post.media,
+          author: post.publication.name,
+          externalUrl: post.externalUrl ?? null,
+          standardDocument: post.destinations.includes("atproto")
+            ? atUri
+            : null,
+        }
+      : {}),
   };
   files.set(
     `src/content/blog/${post.slug}.md`,
     Buffer.from(
       `---\n${Object.entries(header)
         .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-        .join("\n")}\n---\n${post.body}`,
+        .join(
+          "\n",
+        )}\n---\n${post.schemaVersion === "polychrome.public-post.v2" ? post.body.replaceAll(`./assets/${post.slug}/`, `/assets/${post.slug}/`) : post.body}`,
     ),
   );
   for (const asset of post.assets) {
@@ -99,12 +126,13 @@ function renderPost(post: Post, payloadSha256: string): Map<string, Buffer> {
     )
       throw new Error("Invalid public asset.");
     const bytes = Buffer.from(asset.hex, "hex");
-    if (
-      hash(bytes) !== asset.sha256 ||
-      files.has(`src/content/blog/${asset.path}`)
-    )
+    const target =
+      post.schemaVersion === "polychrome.public-post.v2"
+        ? `public/${asset.path}`
+        : `src/content/blog/${asset.path}`;
+    if (hash(bytes) !== asset.sha256 || files.has(target))
       throw new Error("Asset checksum or filename conflict.");
-    files.set(`src/content/blog/${asset.path}`, bytes);
+    files.set(target, bytes);
   }
   return files;
 }

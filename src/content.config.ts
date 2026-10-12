@@ -23,6 +23,10 @@ const blog = defineCollection({
         pubDate: z.coerce.date(),
         updatedDate: z.coerce.date().optional(),
         tags: z.array(z.string()).optional(),
+        media: z.enum(["note", "link-post", "long-form"]).optional(),
+        author: z.string().optional(),
+        externalUrl: z.url().nullable().optional(),
+        standardDocument: z.string().startsWith("at://").nullable().optional(),
         publicationHash: z
           .string()
           .regex(/^[a-f0-9]{64}$/)

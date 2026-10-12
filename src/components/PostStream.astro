@@ -1,0 +1,70 @@
+---
+import { getCollection, render } from "astro:content";
+import FormattedDate from "./FormattedDate.astro";
+
+const posts = await Promise.all(
+  (await getCollection("blog"))
+    .sort(
+      (a, b) =>
+        b.data.pubDate.valueOf() - a.data.pubDate.valueOf() ||
+        b.id.localeCompare(a.id),
+    )
+    .map(async (post) => ({ post, ...(await render(post)) })),
+);
+---
+
+<div class="post-stream">
+  {
+    posts.map(({ post, Content }) => (
+      <article>
+        <a
+          class="date"
+          href={`/blog/${post.id}/`}
+          aria-label={`Permalink: ${post.data.title}`}
+        >
+          <FormattedDate date={post.data.pubDate} />
+        </a>
+        {post.data.media !== "note" && (
+          <h2>
+            <a href={post.data.externalUrl || `/blog/${post.id}/`}>
+              {post.data.title}
+            </a>
+          </h2>
+        )}
+        {post.data.media === "note" || post.data.media === "link-post" ? (
+          <div class="post-body">
+            <Content />
+          </div>
+        ) : (
+          <>
+            <p>{post.data.description}</p>
+            <a href={`/blog/${post.id}/`}>Read more</a>
+          </>
+        )}
+      </article>
+    ))
+  }
+  {posts.length === 0 && <p>No posts yet.</p>}
+</div>
+<style>
+  .post-stream {
+    max-width: 720px;
+    margin: auto;
+  }
+  article {
+    padding: 1.5rem 0 2rem;
+    border-bottom: 1px solid rgb(var(--gray-light));
+  }
+  h2 {
+    margin: 0.4rem 0 1rem;
+    font-size: 1.6rem;
+  }
+  .date {
+    color: rgb(var(--gray));
+    font-size: 0.85rem;
+  }
+  .post-body :global(img) {
+    max-width: 100%;
+    height: auto;
+  }
+</style>

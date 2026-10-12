@@ -16,6 +16,10 @@ interface Props {
   heroImageAlt?: string;
   tags?: string[];
   publicationHash?: string;
+  author?: string;
+  externalUrl?: string | null;
+  standardDocument?: string | null;
+  media?: "note" | "link-post" | "long-form";
 }
 
 const {
@@ -27,6 +31,10 @@ const {
   heroImageAlt,
   tags,
   publicationHash,
+  author = SITE_TITLE,
+  externalUrl,
+  standardDocument,
+  media,
 } = Astro.props;
 
 const schema = {
@@ -39,8 +47,8 @@ const schema = {
   author: [
     {
       "@type": "Person",
-      name: "Carlos Antonio",
-      url: `${SITE_URL}/about`,
+      name: author,
+      url: SITE_URL,
     },
   ],
 };
@@ -67,6 +75,11 @@ const image =
       schema={schema}
       image={image}
     />
+    {
+      standardDocument && (
+        <link rel="site.standard.document" href={standardDocument} />
+      )
+    }
     <style>
       main {
         width: calc(100% - 2em);
@@ -128,7 +141,13 @@ const image =
                 )
               }
             </div>
-            <h1>{title}</h1>
+            {
+              media !== "note" && (
+                <h1>
+                  {externalUrl ? <a href={externalUrl}>{title}</a> : title}
+                </h1>
+              )
+            }
             <hr />
           </div>
           <slot />

@@ -2,7 +2,8 @@
 import BaseHead from "../components/BaseHead.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+import { SITE_TITLE, SITE_DESCRIPTION, IS_PERSONAL } from "../consts";
+import PostStream from "../components/PostStream.astro";
 import { getCollection } from "astro:content";
 
 const tags = (await getCollection("blog")).map((post) => post.data.tags).flat();
@@ -17,35 +18,48 @@ const uniqueTags = [...new Set(tags)];
   <body>
     <Header title={SITE_TITLE} />
     <main>
-      <h1>Hello</h1>
-      <p>
-        Welcome to my personal website. I'm a software developer, gardener and
-        cat lover. I'm also interested in a lot of other things, and I'll be
-        writing about them here.
-      </p>
+      {
+        !IS_PERSONAL ? (
+          <>
+            <>
+              <h1>{SITE_TITLE}</h1>
+              <PostStream />
+            </>
+          </>
+        ) : (
+          <>
+            <h1>Hello</h1>
+            <p>
+              Welcome to my personal website. I'm a software developer, gardener
+              and cat lover. I'm also interested in a lot of other things, and
+              I'll be writing about them here.
+            </p>
 
-      <p>
-        You can find me online at the social media links in my header and
-        footer, although I'm not very active on any of them. If you want to get
-        in contact with me, you can email me at <code>crosquillas at gmail</code
-        >.
-      </p>
+            <p>
+              You can find me online at the social media links in my header and
+              footer, although I'm not very active on any of them. If you want
+              to get in contact with me, you can email me at{" "}
+              <code>crosquillas at gmail</code>.
+            </p>
 
-      <p>
-        You can find out more about me by reading my <a href="/about">about</a>
-        page. My current interests (as determined by the hashtags I've used) are:
-      </p>
-      <ul class="tags">
-        {
-          uniqueTags.map((tag?: string) => (
-            <li>
-              <a class="tag" href={`/tags/${tag}/`}>
-                {tag}
-              </a>
-            </li>
-          ))
-        }
-      </ul>
+            <p>
+              You can find out more about me by reading my{" "}
+              <a href="/about">about</a>
+              page. My current interests (as determined by the hashtags I've
+              used) are:
+            </p>
+            <ul class="tags">
+              {uniqueTags.map((tag?: string) => (
+                <li>
+                  <a class="tag" href={`/tags/${tag}/`}>
+                    {tag}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      }
     </main>
     <Footer />
   </body>

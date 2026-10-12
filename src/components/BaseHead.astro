@@ -30,23 +30,10 @@ interface Props {
 }
 
 import { TWITTER_USERNAME } from "../consts";
-import { getImage } from "astro:assets";
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
-// Import fallback image and optimize it
-import fallbackImage from "../images/about-header.jpeg";
-const optimizedImage = await getImage({ src: fallbackImage });
-
-const {
-  title,
-  description,
-  image = {
-    src: optimizedImage.src,
-    alt: "A beach in Tossa de Mar, Spain",
-  },
-  schema,
-} = Astro.props;
+const { title, description, image, schema } = Astro.props;
 ---
 
 <!-- Global Metadata -->
@@ -66,6 +53,13 @@ const {
   )
 }
 
+<link
+  rel="alternate"
+  type="application/rss+xml"
+  title={title}
+  href="/rss.xml"
+/>
+
 <!-- Sitemap -->
 <link rel="sitemap" href="/sitemap-index.xml" />
 
@@ -82,14 +76,30 @@ const {
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image.src, Astro.url)} />
-<meta property="og:image:alt" content={image.alt} />
+{
+  image && (
+    <>
+      <meta property="og:image" content={new URL(image.src, Astro.url)} />
+      <meta property="og:image:alt" content={image.alt} />
+    </>
+  )
+}
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:creator" content={TWITTER_USERNAME} />
+{
+  TWITTER_USERNAME && (
+    <meta property="twitter:creator" content={TWITTER_USERNAME} />
+  )
+}
 <meta property="twitter:url" content={Astro.url} />
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
-<meta property="twitter:image" content={new URL(image.src, Astro.url)} />
-<meta property="twitter:image:alt" content={image.alt} />
+{
+  image && (
+    <>
+      <meta property="twitter:image" content={new URL(image.src, Astro.url)} />
+      <meta property="twitter:image:alt" content={image.alt} />
+    </>
+  )
+}
