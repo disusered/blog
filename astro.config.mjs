@@ -43,6 +43,7 @@ const createSROnlyLabel = (text) => {
 // https://astro.build/config
 export default defineConfig({
   site: SITE_URL,
+  cacheDir: "./.astro/build-cache",
   vite: { cacheDir: ".astro/vite-cache" },
   integrations: [mdx(), sitemap(), robotsTxt()],
   markdown: {
