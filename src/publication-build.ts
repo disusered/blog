@@ -165,14 +165,22 @@ export async function buildPublication(
         join(directory, "public/favicon.ico"),
       );
     }
-    // Runtime editions come from the snapshot, never a stale checked-in export.
+    // Source presence is not publication approval. Preserve only verified legacy posts.
+    const legacy = JSON.parse(
+      await readFile(join(template, "legacy-publications.json"), "utf8"),
+    ) as Record<string, string[]>;
+    const published = new Set(legacy[profile.url] ?? []);
     const contentRoot = join(directory, "src/content/blog");
     await mkdir(contentRoot, { recursive: true });
-    for (const name of await readdir(contentRoot)) {
-      if (!name.endsWith(".md")) continue;
+    for (const name of await readdir(contentRoot, { recursive: true })) {
+      if (!/\.mdx?$/.test(name)) continue;
       const path = join(contentRoot, name);
       const content = await readFile(path, "utf8");
-      if (/^standardDocument:/m.test(content)) await rm(path);
+      if (
+        !published.has(name.replace(/\.mdx?$/, "")) ||
+        /^standardDocument:/m.test(content)
+      )
+        await rm(path);
     }
     for (const [path, bytes] of files) {
       const target = join(directory, path);

@@ -268,6 +268,19 @@ test("a delivery resumes its saved deploy and only promotes verified content", a
   assert.deepEqual(verified, ["https://preview.example", profile.url]);
 });
 
+test("the personal site preserves only already-published legacy writing", async () => {
+  const built = await buildPublication(
+    fileURLToPath(new URL("..", import.meta.url)),
+    { id: "disusered", name: "Carlos", url: "https://disusered.com" },
+    new Map(),
+  );
+  assert.equal(built.has("/blog/phoenix-with-typescript/index.html"), true);
+  assert.equal(built.has("/blog/playing-with-phaser/index.html"), true);
+  assert.equal(built.has("/blog/fastai/index.html"), false);
+  for (const path of ["/blog/index.html", "/rss.xml", "/sitemap-0.xml"])
+    assert.doesNotMatch(built.get(path)!.toString(), /\/blog\/fastai\//);
+});
+
 test("an isolated build renders a short illustrated post and full RSS without another identity's pages", async () => {
   const input = envelope({
     publication: {

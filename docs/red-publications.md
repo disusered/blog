@@ -15,6 +15,11 @@ the page and RSS in a draft Netlify deployment before promoting that exact deplo
 then verifies the canonical URLs. Private on-disk state preserves deploy IDs and
 receipts across retries. Portal serializes deliveries for each identity.
 
+Existing source files are not automatic publication approvals. The renderer keeps
+only the legacy slugs recorded in `legacy-publications.json`, verified against the
+live site's blog index and RSS on 2026-10-12, plus approved Red snapshot entries.
+Unlisted source writing stays out of bootstrap and subsequent publication builds.
+
 The worker also constructs locally validated `site.standard.publication`,
 `site.standard.document`, and `app.bsky.feed.post` records from pinned lexicons.
 Standard documents carry the complete plain text. Bluesky carries the exact reviewed
