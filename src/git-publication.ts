@@ -39,7 +39,7 @@ export function publisherGit(options: { clone: string; key: string }) {
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_TERMINAL_PROMPT: "0",
-    GIT_SSH_COMMAND: `ssh -i ${options.key} -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHosts}`,
+    GIT_SSH_COMMAND: `ssh -F /dev/null -i ${options.key} -o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHosts}`,
   };
   const settings = [
     "-c",
