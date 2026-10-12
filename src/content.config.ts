@@ -23,6 +23,7 @@ const blog = defineCollection({
         pubDate: z.coerce.date(),
         updatedDate: z.coerce.date().optional(),
         tags: z.array(z.string()).optional(),
+        draft: z.boolean().optional(),
         media: z.enum(["note", "link-post", "long-form"]).optional(),
         author: z.string().optional(),
         externalUrl: z.url().nullable().optional(),

@@ -1,60 +1,58 @@
 # Publish Red writing
 
-Brain Portal's **Write** and **Publications** views own everyday composition,
-identity selection, review, account connections, delivery status, and corrections.
-This repository supplies the public renderer and publisher process. Each identity
-has a separate HTTPS home, Netlify site, and authenticated AT DID. Carlos's home
-keeps its existing pages; other identities receive only their own writing and
-navigation. Short notes and links appear in full in the stream; essays have
-permalinks. RSS contains the complete rendered writing.
+Brain Portal owns composition, identity selection, review, account connections,
+delivery status, and corrections. This repository is the public record of
+disusered.com: its template, its hand-written posts, and every approved Red post.
+Netlify's Git build is the only way the site is deployed, so a template or theme
+change reaches production with an ordinary push. Other identities get their own
+repository and Netlify site so that no public repository links them.
 
-Portal sends an immutable `polychrome.publication-envelope.v2` plus the selected
-identity's public snapshot to `scripts/publication-worker.ts`. Only approved public
-fields and selected image bytes enter a disposable Astro build. The worker verifies
-the page and RSS in a draft Netlify deployment before promoting that exact deploy,
-then verifies the canonical URLs. Private on-disk state preserves deploy IDs and
-receipts across retries. Portal serializes deliveries for each identity.
+Portal sends an immutable `polychrome.publication-envelope.v2` plus the identity's
+approved snapshot to `scripts/publication-worker.ts`. The worker:
 
-Existing source files are not automatic publication approvals. The renderer keeps
-only the legacy slugs recorded in `legacy-publications.json`, verified against the
-live site's blog index and RSS on 2026-10-12, plus approved Red snapshot entries.
-Unlisted source writing stays out of bootstrap and subsequent publication builds.
+1. Reads the site's linked repository and branch from Netlify and refuses a site
+   whose Git builds are stopped.
+2. Resets its own clone to the remote branch, writes the approved posts and
+   images (`src/content/blog/<slug>.md`, `public/assets/<slug>/`), the public
+   OAuth client metadata, and `.well-known/site.standard.publication`.
+3. Commits with its own SSH signing key and pushes. Unchanged files make no
+   commit. A hand-written post with the same slug is never overwritten.
+4. Waits for Netlify to build that commit, verifies the canonical page and RSS
+   carry the approved hash, and returns the website receipt with the deploy and
+   commit.
 
-The worker also constructs locally validated `site.standard.publication`,
+Private on-disk state records the pushed commit and the receipt, so a retry
+resumes without a second commit. Portal serializes deliveries for each identity.
+
+A post with `draft: true` stays in the repository without a page, RSS item, tag,
+or sitemap entry. `fastai` is a draft until Carlos decides to publish it.
+
+The worker also builds locally validated `site.standard.publication`,
 `site.standard.document`, and `app.bsky.feed.post` records from pinned lexicons.
 Standard documents carry the complete plain text. Bluesky carries the exact reviewed
-short text and a link card; it never silently truncates text. Images currently appear
-on the website and RSS, not as native Bluesky attachments. Portal owns authenticated
-AT writes and persists their receipts. A correction updates the same document and
+short text and a link card; it never silently truncates text. Images appear on the
+website and RSS, not as native Bluesky attachments. Portal owns authenticated AT
+writes and persists their receipts. A correction updates the same document and
 permalink; an explicitly selected Bluesky delivery gets a new post.
 
-## Provisioning before the first publication
+## Provisioning
 
-1. Install this checkout's locked dependencies and run its checks. Portal needs
-   Node with TypeScript stripping (the deployed Portal uses Node 24) and this
-   checkout's `node_modules`, including build dependencies.
-2. Provision one Netlify site and HTTPS domain per identity. Stop its Git-triggered
-   builds before Portal takes over delivery; the publisher checks this so a later
-   Git build cannot erase runtime writing. Set `NETLIFY_AUTH_TOKEN` privately in
-   the Portal worker's environment.
-3. Configure `BLOG_PUBLICATION_STATE_DIR` as a private directory, default deployment
-   location `~/.local/share/herding-cats/brain-portal/publication`. The systemd worker
-   must be able to write there and to Cats' private `red/` store.
+1. Link one Netlify site per identity to that identity's GitHub repository with
+   Git builds enabled. Set `NETLIFY_AUTH_TOKEN` privately in the Portal worker's
+   environment.
+2. Create an ed25519 key without a passphrase for the worker. Add its public key
+   to the repository as a deploy key with write access. Set `PUBLICATION_GIT_KEY`
+   to the private key's path (mode 0600). The same key signs the worker's commits.
+3. Configure `BLOG_PUBLICATION_STATE_DIR` as a private directory, by default
+   `~/.local/share/herding-cats/brain-portal/publication`. The worker keeps its
+   clones under `repositories/`.
 4. Configure Portal's `PUBLICATION_OAUTH_KEY_FILE` (private ES256 JWK),
    `PUBLICATION_OAUTH_CLIENT_ID` (for example
    `https://disusered.com/oauth-client-metadata.json`), and
-   `PUBLICATION_OAUTH_CALLBACK_URL` (the Portal OAuth callback). Portal persists
-   OAuth sessions and state in PostgreSQL. Never copy the private JWK into this
-   repository or a public build.
-5. Export Portal's generated public client metadata. Before connecting the first
-   account, publish it on its configured public host with the explicit
-   `bootstrap-metadata` operation below. This operation deploys the host's complete
-   initial template. It refuses a site that already has runtime publication
-   receipts; subsequent publications carry metadata in their full snapshots.
-6. Configure each profile in Portal, connect its verified account, and review a
-   first post. The worker script defaults to this sibling checkout; set
-   `PUBLICATION_WORKER_SCRIPT` if it lives elsewhere. Public publication happens
-   only when the author uses the review-and-publish action.
+   `PUBLICATION_OAUTH_CALLBACK_URL`. Never copy the private JWK into a repository.
+5. Run `bootstrap-metadata` once to commit the public client metadata before
+   connecting an account. Later publications keep it current.
+6. Set `PUBLICATION_WORKER_SCRIPT` to a release export of this repository's worker.
 
 The JSON worker protocol uses stdin and returns one JSON value on stdout:
 
@@ -62,23 +60,17 @@ The JSON worker protocol uses stdin and returns one JSON value on stdout:
 node scripts/publication-worker.ts < /private/path/request.json
 ```
 
-Supported requests:
-
-- `{"action":"preflight","siteId":"…","profile":{"id":"disusered","name":"Carlos","url":"https://disusered.com"}}`
-  checks the site and competing build configuration without deploying.
-- `{"action":"bootstrap-metadata","siteId":"…","profile":{"id":"disusered","name":"Carlos","url":"https://disusered.com"},"metadata":{…}}`
-  is the explicit initial public metadata deployment.
+- `{"action":"preflight","siteId":"…","profile":{…}}` checks the site and returns
+  the repository to push without writing.
+- `{"action":"bootstrap-metadata","siteId":"…","profile":{…},"metadata":{…}}`
+  commits the public OAuth client metadata.
 - `{"action":"build-records","envelope":{…}}` performs no network writes.
 - `{"action":"website","siteId":"…","envelope":{…},"snapshot":{…},"metadata":{…}}`
-  deploys and returns a website receipt. Portal supplies this request.
+  commits, waits for the deploy, and returns a website receipt.
 
-Publication state and exported request files are private operational data. Back up
-the state directory with Portal's database and Red approvals. A successful local
-test or build is not a live delivery receipt.
-
-Checks: `npm run lint`, `npm run check`, `npm run build`, and
-`node --test tests/*.test.ts`. The publication tests build an isolated identity and
-exercise mocked provider retries without publishing anything.
+Checks: `npm run lint`, `npx astro check`, `npm run build`, and
+`node --test tests/*.test.ts`. The publication tests push to a local bare
+repository with a throwaway signing key; they never publish anything.
 
 ## Legacy v1 staging
 

@@ -1,21 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { canonical, sha256 } from "../src/publication-hash.ts";
 import { buildRecords } from "../src/publication-records.ts";
+import { metadataFiles, snapshotFiles } from "../src/publication-build.ts";
 import {
-  buildPublication,
-  metadataFiles,
-  snapshotFiles,
-} from "../src/publication-build.ts";
-import {
-  deployFiles,
   preflight,
   verifyPublication,
+  waitForPublication,
 } from "../src/netlify-publication.ts";
+import { publisherGit, repositoryFor } from "../src/git-publication.ts";
 import {
   canonicalUrl,
   type PublicPost,
@@ -186,17 +184,34 @@ test("page verification requires the matching RSS item as well as HTML", async (
   );
 });
 
-test("Netlify refuses a wrong site and competing Git builds before mutation", async () => {
+test("Netlify requires the site's Git builds and names the repository to push", async () => {
   const profile = envelope().payload.publication;
   const site = {
     id: "site-1",
     ssl_url: profile.url,
     custom_domain: "writer.example",
-    build_settings: { repo_url: "git@example/repo", stop_builds: false },
+    build_settings: {
+      repo_url: "https://github.com/writer/blog",
+      repo_branch: "main",
+      stop_builds: false,
+    },
   };
+  assert.deepEqual(
+    (
+      await preflight("site-1", profile, "token", async () =>
+        Response.json(site),
+      )
+    ).repository,
+    { url: "git@github.com:writer/blog.git", branch: "main" },
+  );
   await assert.rejects(
-    preflight("site-1", profile, "token", async () => Response.json(site)),
-    /Stop Netlify Git builds/,
+    preflight("site-1", profile, "token", async () =>
+      Response.json({
+        ...site,
+        build_settings: { ...site.build_settings, stop_builds: true },
+      }),
+    ),
+    /enable builds/,
   );
   await assert.rejects(
     preflight("site-1", profile, "token", async () =>
@@ -208,133 +223,130 @@ test("Netlify refuses a wrong site and competing Git builds before mutation", as
     ),
     /does not serve/,
   );
+  assert.throws(() => repositoryFor("https://gitlab.com/x/y"), /GitHub/);
 });
 
-test("a delivery resumes its saved deploy and only promotes verified content", async (t) => {
-  const stateDir = await mkdtemp(join(tmpdir(), "publication-state-"));
-  t.after(() => rm(stateDir, { recursive: true, force: true }));
-  const profile = envelope().payload.publication;
-  const calls: string[] = [];
-  let current = false;
-  const mockFetch: typeof fetch = async (url, options) => {
-    const path = new URL(String(url)).pathname;
-    calls.push(`${options?.method ?? "GET"} ${path}`);
-    if (path === "/api/v1/sites/site-1")
-      return Response.json({ id: "site-1", ssl_url: profile.url });
-    if (path.endsWith("/restore")) current = true;
-    return Response.json({
-      id: "deploy-1",
-      site_id: "site-1",
-      state: current ? "current" : "ready",
-      required: [],
-      deploy_ssl_url: "https://preview.example",
-    });
-  };
-  const options = {
-    siteId: "site-1",
-    profile,
-    files: new Map([["/index.html", Buffer.from("public")]]),
-    stateDir,
-    token: "token",
-    fetcher: mockFetch,
-  };
-  await assert.rejects(
-    deployFiles({
-      ...options,
-      verify: async () => {
-        throw new Error("unverified");
-      },
-    }),
-    /unverified/,
+test("delivery commits signed public files, keeps hand-written posts, and repeats without a new commit", async (t) => {
+  const exec = promisify(execFile);
+  const root = await mkdtemp(join(tmpdir(), "publication-git-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const key = join(root, "key");
+  await exec("ssh-keygen", ["-q", "-t", "ed25519", "-N", "", "-f", key]);
+  const remote = join(root, "remote.git");
+  const seed = join(root, "seed");
+  const plain = { env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" } };
+  await exec("git", ["init", "-q", "--bare", "-b", "main", remote], plain);
+  await exec("git", ["clone", "-q", remote, seed], plain);
+  await mkdir(join(seed, "src/content/blog"), { recursive: true });
+  await writeFile(
+    join(seed, "src/content/blog/legacy.md"),
+    "---\ntitle: x\n---\n",
   );
-  assert.equal(
-    calls.some((call) => call.endsWith("/restore")),
-    false,
-  );
-  const verified: string[] = [];
-  assert.equal(
-    await deployFiles({
-      ...options,
-      verify: async (url) => {
-        verified.push(url);
-      },
-    }),
-    "deploy-1",
-  );
-  assert.equal(
-    calls.filter((call) => call === "POST /api/v1/sites/site-1/deploys").length,
-    1,
-  );
-  assert.deepEqual(verified, ["https://preview.example", profile.url]);
-});
+  for (const args of [
+    ["add", "."],
+    ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "seed"],
+    ["push", "-q", "origin", "HEAD:main"],
+  ])
+    await exec("git", args, { ...plain, cwd: seed });
 
-test("the personal site preserves only already-published legacy writing", async () => {
-  const built = await buildPublication(
-    fileURLToPath(new URL("..", import.meta.url)),
-    { id: "disusered", name: "Carlos", url: "https://disusered.com" },
-    new Map(),
-  );
-  assert.equal(built.has("/blog/phoenix-with-typescript/index.html"), true);
-  assert.equal(built.has("/blog/playing-with-phaser/index.html"), true);
-  assert.equal(built.has("/blog/fastai/index.html"), false);
-  for (const path of ["/blog/index.html", "/rss.xml", "/sitemap-0.xml"])
-    assert.doesNotMatch(built.get(path)!.toString(), /\/blog\/fastai\//);
-});
-
-test("an isolated build renders a short illustrated post and full RSS without another identity's pages", async () => {
-  const input = envelope({
-    publication: {
-      id: "other",
-      name: "Another Voice",
-      url: "https://other.example",
-      did: "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb",
-    },
-    media: "link-post",
-    externalUrl: "https://example.org/work",
-    body: "A complete observation.\n\n![A red pixel](./assets/a-note/pixel.png)",
-    assets: [
-      {
-        path: "assets/a-note/pixel.png",
-        sha256: sha256(Buffer.from("89504e470d0a1a0a", "hex")),
-        hex: "89504e470d0a1a0a",
-      },
-    ],
-  });
+  const repository = { url: remote, branch: "main" };
+  const git = publisherGit({ clone: join(root, "state/clone"), key });
+  const input = envelope();
   const files = snapshotFiles(
     {
       schemaVersion: "polychrome.publication-snapshot.v1",
-      publication: "other",
+      publication: "carlos",
       envelopes: [input],
     },
     input,
   );
-  const built = await buildPublication(
-    fileURLToPath(new URL("..", import.meta.url)),
-    input.payload.publication,
-    files,
+  await git.sync(repository);
+  await git.write(files);
+  const commit = await git.commit(
+    [...files.keys()],
+    "feat(content): publish a-note",
   );
-  assert.equal(built.has("/about/index.html"), false);
-  assert.equal(built.has("/blog/fastai/index.html"), false);
-  assert.equal(built.has("/assets/a-note/pixel.png"), true);
-  for (const path of [
-    "/index.html",
-    "/blog/index.html",
-    "/blog/a-note/index.html",
-    "/rss.xml",
-  ]) {
-    const content = built.get(path)!.toString();
-    assert.match(content, /A complete observation/);
-    assert.doesNotMatch(
-      content,
-      /Carlos Antonio|crosquillas|github.com\/disusered|about-header/,
-    );
-  }
-  assert.match(
-    built.get("/rss.xml")!.toString(),
-    /https:\/\/other.example\/assets\/a-note\/pixel.png/,
+  assert.match(commit!, /^[a-f0-9]{40}$/);
+  assert.equal(await git.push(repository), true);
+  assert.equal(await git.published(commit!, repository), true);
+  const { stdout } = await exec(
+    "git",
+    ["--git-dir", remote, "cat-file", "commit", commit!],
+    plain,
   );
+  assert.match(stdout, /BEGIN SSH SIGNATURE/);
   assert.match(
-    built.get("/blog/a-note/index.html")!.toString(),
-    /site.standard.document/,
+    await readFile(
+      join(root, "state/clone/src/content/blog/a-note.md"),
+      "utf8",
+    ),
+    /publicationHash/,
+  );
+
+  const head = await git.sync(repository);
+  assert.equal(head, commit);
+  await git.write(files);
+  assert.equal(await git.commit([...files.keys()], "again"), undefined);
+
+  await assert.rejects(
+    git.write(new Map([["src/content/blog/legacy.md", Buffer.from("x")]])),
+    /collides with existing writing/,
+  );
+  await assert.rejects(
+    git.write(new Map([["../escape.md", Buffer.from("x")]])),
+    /inside the repository/,
+  );
+});
+
+test("waiting fails on a broken Netlify build and returns the commit's deploy once live", async () => {
+  const site = { id: "site-1", published_deploy: { id: "deploy-live" } };
+  const respond =
+    (state: string): typeof fetch =>
+    async (url) =>
+      String(url).includes("/deploys")
+        ? Response.json([
+            { id: "deploy-1", commit_ref: "abc", context: "production", state },
+          ])
+        : Response.json(site);
+  await assert.rejects(
+    waitForPublication({
+      siteId: "site-1",
+      commit: "abc",
+      token: "token",
+      verify: async () => {
+        throw new Error("not yet");
+      },
+      fetcher: respond("error"),
+      interval: 0,
+    }),
+    /could not build/,
+  );
+  let checks = 0;
+  assert.equal(
+    await waitForPublication({
+      siteId: "site-1",
+      commit: "abc",
+      token: "token",
+      verify: async () => {
+        if (++checks < 3) throw new Error("not yet");
+      },
+      fetcher: respond("building"),
+      interval: 0,
+    }),
+    "deploy-1",
+  );
+  await assert.rejects(
+    waitForPublication({
+      siteId: "site-1",
+      commit: "abc",
+      token: "token",
+      verify: async () => {
+        throw new Error("never live");
+      },
+      fetcher: respond("building"),
+      attempts: 2,
+      interval: 0,
+    }),
+    /never live/,
   );
 });

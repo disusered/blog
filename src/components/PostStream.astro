@@ -1,9 +1,10 @@
 ---
-import { getCollection, render } from "astro:content";
+import { render } from "astro:content";
+import { getPosts } from "../posts";
 import FormattedDate from "./FormattedDate.astro";
 
 const posts = await Promise.all(
-  (await getCollection("blog"))
+  (await getPosts())
     .sort(
       (a, b) =>
         b.data.pubDate.valueOf() - a.data.pubDate.valueOf() ||

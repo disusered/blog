@@ -1,18 +1,3 @@
-import { execFile } from "node:child_process";
-import {
-  cp,
-  lstat,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { promisify } from "node:util";
 import { publicFiles } from "../scripts/publish-blog.ts";
 import { canonical } from "./publication-hash.ts";
 import {
@@ -23,7 +8,6 @@ import {
   type PublicationSnapshot,
 } from "./publication.ts";
 
-const exec = promisify(execFile);
 export type BuildProfile = Omit<PublicationProfile, "did"> & { did?: string };
 
 export function snapshotFiles(
@@ -115,121 +99,4 @@ export function metadataFiles(
     ),
   );
   return files;
-}
-
-async function collect(
-  root: string,
-  prefix = "",
-): Promise<Map<string, Buffer>> {
-  const found = new Map<string, Buffer>();
-  for (const entry of await readdir(join(root, prefix), {
-    withFileTypes: true,
-  })) {
-    const path = join(prefix, entry.name);
-    if (entry.isSymbolicLink())
-      throw new Error("Build output cannot contain symlinks.");
-    if (entry.isDirectory())
-      for (const item of await collect(root, path)) found.set(...item);
-    else if (entry.isFile())
-      found.set(`/${path}`, await readFile(join(root, path)));
-  }
-  return found;
-}
-
-/** A disposable build sees only the selected public snapshot and public template. */
-export async function buildPublication(
-  template: string,
-  profile: BuildProfile,
-  files: Map<string, Buffer>,
-): Promise<Map<string, Buffer>> {
-  const directory = await mkdtemp(join(tmpdir(), "red-publication-"));
-  try {
-    for (const path of [
-      "src",
-      "public",
-      "astro.config.mjs",
-      "package.json",
-      "tsconfig.json",
-    ])
-      await cp(join(template, path), join(directory, path), {
-        recursive: true,
-        dereference: false,
-      });
-    if (profile.url !== "https://disusered.com") {
-      await rm(join(directory, "src/content/blog"), { recursive: true });
-      await rm(join(directory, "src/pages/about.astro"));
-      await rm(join(directory, "public"), { recursive: true });
-      await mkdir(join(directory, "public"));
-      await cp(
-        join(template, "public/favicon.ico"),
-        join(directory, "public/favicon.ico"),
-      );
-    }
-    // Source presence is not publication approval. Preserve only verified legacy posts.
-    const legacy = JSON.parse(
-      await readFile(join(template, "legacy-publications.json"), "utf8"),
-    ) as Record<string, string[]>;
-    const published = new Set(legacy[profile.url] ?? []);
-    const contentRoot = join(directory, "src/content/blog");
-    await mkdir(contentRoot, { recursive: true });
-    for (const name of await readdir(contentRoot, { recursive: true })) {
-      if (!/\.mdx?$/.test(name)) continue;
-      const path = join(contentRoot, name);
-      const content = await readFile(path, "utf8");
-      if (
-        !published.has(name.replace(/\.mdx?$/, "")) ||
-        /^standardDocument:/m.test(content)
-      )
-        await rm(path);
-    }
-    for (const [path, bytes] of files) {
-      const target = join(directory, path);
-      if (path.startsWith("src/content/blog/")) {
-        try {
-          await lstat(target);
-          throw new Error(
-            `The permalink collides with existing writing: ${path}`,
-          );
-        } catch (error) {
-          if (
-            !(error instanceof Error) ||
-            !("code" in error) ||
-            error.code !== "ENOENT"
-          )
-            throw error;
-        }
-      }
-      await mkdir(dirname(target), { recursive: true });
-      await writeFile(target, bytes);
-    }
-    await symlink(
-      join(template, "node_modules"),
-      join(directory, "node_modules"),
-      "dir",
-    );
-    try {
-      await exec(
-        process.execPath,
-        [join(template, "node_modules/.bin/astro"), "build"],
-        {
-          cwd: directory,
-          env: {
-            ...process.env,
-            PUBLICATION_PROFILE_JSON: JSON.stringify(profile),
-            ASTRO_TELEMETRY_DISABLED: "1",
-          },
-          timeout: 180_000,
-          maxBuffer: 8 * 1024 * 1024,
-        },
-      );
-    } catch (error) {
-      throw new Error(
-        "The public website build failed; no deployment was attempted.",
-        { cause: error },
-      );
-    }
-    return await collect(join(directory, "dist"));
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
 }

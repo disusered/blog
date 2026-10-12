@@ -1,8 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { canonical, sha256 } from "./publication-hash.ts";
+import { repositoryFor } from "./git-publication.ts";
 import {
   canonicalUrl,
   publicUrl,
@@ -17,13 +14,20 @@ type Deploy = {
   deploy_ssl_url?: string;
   deploy_url?: string;
   required?: string[];
+  commit_ref?: string | null;
+  context?: string;
 };
 type Site = {
   id: string;
   ssl_url: string;
   custom_domain?: string;
   domain_aliases?: string[];
-  build_settings?: { repo_url?: string; stop_builds?: boolean };
+  build_settings?: {
+    repo_url?: string;
+    repo_branch?: string;
+    stop_builds?: boolean;
+  };
+  published_deploy?: { id: string };
 };
 type Fetch = typeof fetch;
 
@@ -74,11 +78,19 @@ export async function preflight(
     throw new Error(
       "The Netlify site does not serve this publication's domain.",
     );
-  if (site.build_settings?.repo_url && site.build_settings.stop_builds !== true)
+  if (!site.build_settings?.repo_url || site.build_settings.stop_builds)
     throw new Error(
-      "Stop Netlify Git builds for this site before enabling Portal publication; otherwise a Git build can overwrite published writing.",
+      "Link this Netlify site to its Git repository and enable builds before publishing.",
     );
-  return { ready: true, siteId: site.id, url: profile.url };
+  return {
+    ready: true,
+    siteId: site.id,
+    url: profile.url,
+    repository: repositoryFor(
+      site.build_settings.repo_url,
+      site.build_settings.repo_branch,
+    ),
+  };
 }
 
 export async function verifyPublication(
@@ -115,104 +127,43 @@ export async function verifyPublication(
     );
 }
 
-async function save(path: string, value: unknown) {
-  const temporary = `${path}.${randomUUID()}`;
-  await writeFile(temporary, canonical(value), { mode: 0o600, flag: "wx" });
-  await rename(temporary, path);
-}
-
-/** Create a draft, verify it, then make that exact deploy public. Portal serializes by site. */
-export async function deployFiles(options: {
+/** Wait until Netlify builds the pushed commit and the canonical home serves it. */
+export async function waitForPublication(options: {
   siteId: string;
-  profile: BuildProfile;
-  files: Map<string, Buffer>;
-  stateDir: string;
+  commit: string;
+  verify: () => Promise<void>;
   token: string;
-  verify: (url: string) => Promise<void>;
   fetcher?: Fetch;
+  attempts?: number;
+  interval?: number;
 }) {
   const {
     siteId,
-    profile,
-    files,
-    stateDir,
-    token,
+    commit,
     verify,
+    token,
     fetcher = fetch,
+    attempts = 50,
+    interval = 10_000,
   } = options;
-  await preflight(siteId, profile, token, fetcher);
-  await mkdir(stateDir, { recursive: true, mode: 0o700 });
-  const stat = await lstat(stateDir);
-  if (!stat.isDirectory() || stat.isSymbolicLink() || stat.mode & 0o077)
-    throw new Error("Publication delivery state must be a private directory.");
-  const digests = Object.fromEntries(
-    [...files]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([path, data]) => [
-        path,
-        createHash("sha1").update(data).digest("hex"),
-      ]),
-  );
-  const statePath = join(
-    stateDir,
-    `${sha256(canonical({ siteId, digests }))}.json`,
-  );
   const api = netlifyApi(token, fetcher);
-  let deploy: Deploy | undefined;
-  try {
-    const saved = JSON.parse(await readFile(statePath, "utf8")) as {
-      deployId: string;
-    };
-    if (!/^[a-zA-Z0-9-]+$/.test(saved.deployId))
-      throw new Error("Invalid saved deployment.");
-    deploy = await api<Deploy>(`/sites/${siteId}/deploys/${saved.deployId}`);
-  } catch (error) {
-    if (
-      !(error instanceof Error) ||
-      !("code" in error) ||
-      error.code !== "ENOENT"
-    )
-      throw error;
-  }
-  if (!deploy) {
-    deploy = await api<Deploy>(`/sites/${siteId}/deploys`, {
-      method: "POST",
-      body: JSON.stringify({ files: digests, draft: true }),
-    });
-    await save(statePath, { deployId: deploy.id });
-  }
-  if (deploy.site_id !== siteId || !/^[a-zA-Z0-9-]+$/.test(deploy.id))
-    throw new Error("Netlify returned another site's deploy.");
-  for (const digest of deploy.required ?? []) {
-    const path = Object.keys(digests).find((key) => digests[key] === digest);
-    if (!path) throw new Error("Netlify requested a file outside this build.");
-    await api(
-      `/deploys/${deploy.id}/files${path.split("/").map(encodeURIComponent).join("/")}`,
-      {
-        method: "PUT",
-        headers: { "content-type": "application/octet-stream" },
-        body: new Uint8Array(files.get(path)!),
-      },
+  for (let attempt = 0; ; attempt++) {
+    const deploys = await api<Deploy[]>(`/sites/${siteId}/deploys?per_page=20`);
+    const build = deploys.find(
+      (deploy) =>
+        deploy.commit_ref === commit && deploy.context === "production",
     );
+    if (build?.state === "error")
+      throw new Error(
+        "Netlify could not build the publication commit. Check the site's deploy log.",
+      );
+    try {
+      await verify();
+      const site = await api<Site>(`/sites/${siteId}`);
+      return build?.id ?? site.published_deploy?.id ?? commit;
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+    }
+    await delay(interval);
   }
-  for (
-    let attempts = 0;
-    !["ready", "current"].includes(deploy.state);
-    attempts++
-  ) {
-    if (deploy.state === "error" || attempts >= 30)
-      throw new Error("Netlify deployment is not ready; retry this delivery.");
-    await delay(1000);
-    deploy = await api<Deploy>(`/sites/${siteId}/deploys/${deploy.id}`);
-  }
-  const previewUrl = deploy.deploy_ssl_url || deploy.deploy_url;
-  if (!previewUrl)
-    throw new Error("Netlify did not return a deploy preview URL.");
-  await verify(previewUrl);
-  if (deploy.state !== "current")
-    await api(`/sites/${siteId}/deploys/${deploy.id}/restore`, {
-      method: "POST",
-    });
-  await verify(profile.url);
-  return deploy.id;
 }

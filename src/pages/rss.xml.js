@@ -1,11 +1,12 @@
 import rss from "@astrojs/rss";
-import { getCollection, render } from "astro:content";
+import { render } from "astro:content";
+import { getPosts } from "../posts";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import mdxRenderer from "@astrojs/mdx/server.js";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
 
 export async function GET(context) {
-  const posts = (await getCollection("blog")).sort(
+  const posts = (await getPosts()).sort(
     (a, b) => b.data.pubDate - a.data.pubDate,
   );
   const container = await AstroContainer.create();
