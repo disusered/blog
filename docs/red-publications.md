@@ -63,7 +63,10 @@ permalink; an explicitly selected Bluesky delivery gets a new post.
    `PUBLICATION_OAUTH_CALLBACK_URL`. Never copy the private JWK into a repository.
 5. Run `bootstrap-metadata` once to commit the public client metadata before
    connecting an account. Later publications keep it current.
-6. Set `PUBLICATION_WORKER_SCRIPT` to a release export of this repository's worker.
+6. Nothing to install for the worker itself. Before every run, Portal updates
+   its own checkout of this repository from the site's published branch and
+   runs `scripts/publication-worker.ts` from it, so whatever is on `main`
+   publishes next. Keep unfinished work off `main`.
 
 The JSON worker protocol uses stdin and returns one JSON value on stdout:
 
