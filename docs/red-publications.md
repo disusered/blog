@@ -35,7 +35,8 @@ A payload `cover` (`{ name, alt }`, naming one of its images) becomes the
 post's `heroImage` and the Standard document's cover proposal.
 
 A post with `draft: true` stays in the repository without a page, RSS item, tag,
-or sitemap entry. `fastai` is a draft until Carlos decides to publish it.
+or sitemap entry. Unpublished writing now lives as a Red draft instead; the
+`fastai` draft moved there.
 
 The worker also builds locally validated `site.standard.publication`,
 `site.standard.document`, and `app.bsky.feed.post` records from pinned lexicons.
