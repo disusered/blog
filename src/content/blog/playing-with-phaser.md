@@ -8,6 +8,8 @@ media: "long-form"
 author: "Carlos"
 externalUrl: null
 standardDocument: "at://did:plc:ebbutf3h4tkwf6agagwx2y25/site.standard.document/7ulmp5o2qvira"
+heroImage: "/assets/playing-with-phaser/playing-with-phaser.png"
+heroImageAlt: "A screenshot of a side-scrolling platform game with the Phaser logo superimposed"
 ---
 I've been toying with the idea of making a videogame for a long time, but was lacking motivation. I recently came across a thread by Brian Bucklew who documented his work in porting his [Caves of Qud](https://www.cavesofqud.com/) from Unity to [Godot](https://godotengine.org/). The thread is a great read and I highly recommend it.
 
