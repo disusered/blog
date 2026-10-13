@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { canonical } from "../src/publication-hash.ts";
 import {
   documentUri,
+  privateReference,
   validateEnvelope,
   type PublicationEnvelope,
   type PublicPost,
@@ -82,13 +83,19 @@ function renderPost(
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(post.slug))
     throw new Error("Invalid blog slug.");
   for (const text of [post.title, post.description, post.body, ...post.tags]) {
-    if (
-      typeof text !== "string" ||
-      /polychrome:\/\/|file:\/\/|\/home\/|localhost|127\.0\.0\.1/i.test(text)
-    )
+    if (typeof text !== "string" || privateReference(text, text === post.body))
       throw new Error("Private references are not public content.");
   }
   const files = new Map<string, Buffer>();
+  const cover = "cover" in post ? post.cover : undefined;
+  if (
+    cover &&
+    (typeof cover.alt !== "string" ||
+      !post.assets.some(
+        (asset) => asset.path === `assets/${post.slug}/${cover.name}`,
+      ))
+  )
+    throw new Error("The cover must name one of the post's images.");
   const header = {
     title: post.title,
     description: post.description,
@@ -106,6 +113,12 @@ function renderPost(
             post.destinations.includes("atproto")
               ? atUri
               : null,
+          ...(cover
+            ? {
+                heroImage: `/assets/${post.slug}/${cover.name}`,
+                heroImageAlt: cover.alt,
+              }
+            : {}),
         }
       : {}),
   };

@@ -25,16 +25,18 @@ interface RecordProposal<T> {
   rkey: string;
   record: T;
 }
+type ReviewedImage = {
+  path: string;
+  sha256: string;
+  hex: string;
+  alt: string;
+};
 interface PublicationRecords {
   publication?: RecordProposal<PublicationRecord>;
-  document?: RecordProposal<DocumentRecord>;
+  /** The worker uploads `reviewedCover` and sets it as `coverImage`. */
+  document?: RecordProposal<DocumentRecord> & { reviewedCover?: ReviewedImage };
   bluesky?: RecordProposal<BlueskyRecord> & {
-    reviewedImages?: {
-      path: string;
-      sha256: string;
-      hex: string;
-      alt: string;
-    }[];
+    reviewedImages?: ReviewedImage[];
   };
 }
 
@@ -55,7 +57,7 @@ export async function buildRecords(
             name: profile.name,
             url: profile.url,
           };
-          const rendered = await renderWriting(post.body);
+          const rendered = await renderWriting(post.body, profile.url);
           const documentRecord = {
             $type: "site.standard.document",
             site: `at://${profile.did}/site.standard.publication/${publicationRkey}`,
@@ -73,10 +75,25 @@ export async function buildRecords(
             rkey: publicationRkey,
             record: publicationSchema.parse(publicationRecord),
           };
+          const cover = post.cover && {
+            ...post.assets.find(
+              (asset) =>
+                asset.path === `assets/${post.slug}/${post.cover!.name}`,
+            )!,
+            alt: post.cover.alt,
+          };
+          if (cover && !cover.hex)
+            throw new Error("The cover must name one of the post's images.");
+          // site.standard.document limits coverImage to 1,000,000 bytes.
+          if (cover && cover.hex.length / 2 > 1_000_000)
+            throw new Error(
+              "The cover image must be under 1 MB for AT Protocol.",
+            );
           const document = {
             collection: "site.standard.document",
             rkey: documentKey(envelope),
             record: documentSchema.parse(documentRecord),
+            ...(cover ? { reviewedCover: cover } : {}),
           };
           return { publication, document };
         })()

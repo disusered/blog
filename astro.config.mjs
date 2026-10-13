@@ -10,6 +10,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import { toString } from "hast-util-to-string";
 import { h } from "hastscript";
+import { remarkEmbeds } from "./src/embeds.ts";
 
 // The following configuration for rehype-autolink-headings was taken from https://github.com/withastro/docs/blob/main/astro.config.ts
 const AnchorLinkIcon = h(
@@ -45,10 +46,15 @@ export default defineConfig({
   site: SITE_URL,
   cacheDir: "./.astro/build-cache",
   vite: { cacheDir: ".astro/vite-cache" },
-  integrations: [mdx(), sitemap(), robotsTxt()],
+  integrations: [
+    mdx(),
+    // Demo pages exist to be framed by posts, not found on their own.
+    sitemap({ filter: (page) => !page.includes("/demos/") }),
+    robotsTxt(),
+  ],
   markdown: {
     processor: unified({
-      remarkPlugins: [remarkToc],
+      remarkPlugins: [remarkToc, remarkEmbeds({ site: SITE_URL })],
       rehypePlugins: [
         rehypeSlug,
         [

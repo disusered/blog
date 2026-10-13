@@ -18,6 +18,7 @@ import {
 import { publisherGit, repositoryFor } from "../src/git-publication.ts";
 import {
   canonicalUrl,
+  validateEnvelope,
   type PublicPost,
   type PublicationEnvelope,
 } from "../src/publication.ts";
@@ -228,6 +229,83 @@ test("native image proposals preserve frozen bytes and the author's alt text", a
   );
 });
 
+test("local addresses are allowed in code and refused in prose and links", () => {
+  for (const body of [
+    "Run `http://localhost:4000` locally.",
+    "x ``a ` localhost`` y",
+    "````\nlocalhost\n```\nstill code\n`````",
+    "```sh\ncurl http://127.0.0.1:4000\n```",
+    "~~~\nlocalhost\n~~~\n\nDone.",
+  ]) {
+    validateEnvelope(envelope({ body }));
+    assert.ok(publicFiles(envelope({ body })).size);
+  }
+  for (const body of [
+    "Visit localhost to see it.",
+    "[`localhost:4000`](http://localhost:4000)",
+    "<http://127.0.0.1:4000>",
+    "```\ncode\n```\n\nthen localhost",
+    "`file:///etc/passwd`",
+    "`/home/carlos/notes`",
+    "```\nlocalhost\n~~~\nstill code\n``\nstill code\n```\nlocalhost",
+    "a `b` localhost `c`",
+  ])
+    assert.throws(
+      () => validateEnvelope(envelope({ body })),
+      /Private references/,
+      body,
+    );
+  // Plain fields are not Markdown, so code formatting does not excuse them.
+  assert.throws(
+    () => validateEnvelope(envelope({ title: "`localhost`" })),
+    /Private references/,
+  );
+});
+
+test("a cover names a frozen image for the hero and the document's cover blob", async () => {
+  const bytes = Buffer.from("cover fixture");
+  const asset = {
+    path: "assets/a-note/cover.png",
+    sha256: sha256(bytes),
+    hex: bytes.toString("hex"),
+  };
+  const input = envelope({
+    media: "long-form",
+    destinations: ["website", "atproto"],
+    blueskyText: undefined,
+    assets: [asset],
+    cover: { name: "cover.png", alt: "A cat on a keyboard" },
+  });
+  const markdown = publicFiles(input)
+    .get("src/content/blog/a-note.md")!
+    .toString();
+  assert.match(markdown, /^heroImage: "\/assets\/a-note\/cover\.png"$/m);
+  assert.match(markdown, /^heroImageAlt: "A cat on a keyboard"$/m);
+  const records = await buildRecords(input);
+  assert.deepEqual(records.document!.reviewedCover, {
+    ...asset,
+    alt: "A cat on a keyboard",
+  });
+  assert.equal(records.document!.record.coverImage, undefined);
+  for (const cover of [
+    { name: "../cover.png", alt: "x" },
+    { name: "cover.png" } as { name: string; alt: string },
+  ])
+    assert.throws(
+      () => validateEnvelope(envelope({ ...input.payload, cover })),
+      /Invalid approved/,
+    );
+  const missing = envelope({ ...input.payload, assets: [] });
+  assert.throws(() => publicFiles(missing), /cover must name/);
+  await assert.rejects(buildRecords(missing), /cover must name/);
+  const plain = envelope({ destinations: ["website", "atproto"] });
+  assert.doesNotMatch(
+    publicFiles(plain).get("src/content/blog/a-note.md")!.toString(),
+    /heroImage/,
+  );
+  assert.equal((await buildRecords(plain)).document!.reviewedCover, undefined);
+});
+
 test("Bluesky never silently truncates and content tampering is refused", async () => {
   await assert.rejects(
     buildRecords(envelope({ blueskyText: "x".repeat(301) })),
@@ -362,7 +440,7 @@ test("Netlify requires the site's Git builds and names the repository to push", 
   assert.throws(() => repositoryFor("https://gitlab.com/x/y"), /GitHub/);
 });
 
-test("delivery commits signed public files, keeps hand-written posts, and repeats without a new commit", async (t) => {
+test("delivery commits signed public files, replaces a same-slug hand-written post, and repeats without a new commit", async (t) => {
   const exec = promisify(execFile);
   const root = await mkdtemp(join(tmpdir(), "publication-git-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -374,10 +452,16 @@ test("delivery commits signed public files, keeps hand-written posts, and repeat
   await exec("git", ["init", "-q", "--bare", "-b", "main", remote], plain);
   await exec("git", ["clone", "-q", remote, seed], plain);
   await mkdir(join(seed, "src/content/blog"), { recursive: true });
+  const blog = join(seed, "src/content/blog");
+  await writeFile(join(blog, "legacy.md"), "---\ntitle: x\n---\n");
   await writeFile(
-    join(seed, "src/content/blog/legacy.md"),
-    "---\ntitle: x\n---\n",
+    join(blog, "a-note.mdx"),
+    '---\nheroImage: "./hero.png"\n---\nimport shot from "./shot.png";\n\n![Shared](./shared.png)\n![Parent](../outside.png)\n',
   );
+  await writeFile(join(blog, "other.md"), "![Shared](./shared.png)\n");
+  for (const name of ["hero.png", "shot.png", "shared.png", "unrelated.png"])
+    await writeFile(join(blog, name), name);
+  await writeFile(join(seed, "src/content/outside.png"), "outside");
   for (const args of [
     ["add", "."],
     ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "seed"],
@@ -397,9 +481,14 @@ test("delivery commits signed public files, keeps hand-written posts, and repeat
     input,
   );
   await git.sync(repository);
-  await git.write(files);
+  const replaced = await git.write(files);
+  assert.deepEqual(replaced, [
+    "src/content/blog/a-note.mdx",
+    "src/content/blog/hero.png",
+    "src/content/blog/shot.png",
+  ]);
   const commit = await git.commit(
-    [...files.keys()],
+    [...files.keys(), ...replaced],
     "feat(content): publish a-note",
   );
   assert.match(commit!, /^[a-f0-9]{40}$/);
@@ -411,6 +500,20 @@ test("delivery commits signed public files, keeps hand-written posts, and repeat
     plain,
   );
   assert.match(stdout, /BEGIN SSH SIGNATURE/);
+  const { stdout: tree } = await exec(
+    "git",
+    ["--git-dir", remote, "ls-tree", "-r", "--name-only", commit!],
+    plain,
+  );
+  assert.deepEqual(tree.trim().split("\n").sort(), [
+    "public/.well-known/site.standard.publication",
+    "src/content/blog/a-note.md",
+    "src/content/blog/legacy.md",
+    "src/content/blog/other.md",
+    "src/content/blog/shared.png",
+    "src/content/blog/unrelated.png",
+    "src/content/outside.png",
+  ]);
   assert.match(
     await readFile(
       join(root, "state/clone/src/content/blog/a-note.md"),
@@ -421,12 +524,20 @@ test("delivery commits signed public files, keeps hand-written posts, and repeat
 
   const head = await git.sync(repository);
   assert.equal(head, commit);
-  await git.write(files);
+  assert.deepEqual(await git.write(files), []);
   assert.equal(await git.commit([...files.keys()], "again"), undefined);
 
+  assert.deepEqual(
+    await git.write(
+      new Map([["src/content/blog/legacy.md", Buffer.from("x")]]),
+    ),
+    ["src/content/blog/legacy.md"],
+  );
+  await git.sync(repository);
+  await writeFile(join(root, "state/clone/src/content/blog/x.png"), "x");
   await assert.rejects(
-    git.write(new Map([["src/content/blog/legacy.md", Buffer.from("x")]])),
-    /collides with existing writing/,
+    git.write(new Map([["src/content/blog/x.png", Buffer.from("y")]])),
+    /The permalink collides with existing writing: src\/content\/blog\/x\.png/,
   );
   await assert.rejects(
     git.write(new Map([["../escape.md", Buffer.from("x")]])),

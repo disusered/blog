@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
@@ -93,9 +100,15 @@ export function publisherGit(options: { clone: string; key: string }) {
       await git(["clean", "--quiet", "-fd"]);
       return git(["rev-parse", "HEAD"]);
     },
-    /** Write public files, refusing hand-written posts and symlinked paths. */
+    /**
+     * Write public files, refusing symlinked paths. A Red post replaces a
+     * hand-written post with the same slug: the old `.md`/`.mdx` and the
+     * co-located images only it references are removed. Returns the removed or
+     * replaced hand-written paths so the commit can stage and name them.
+     */
     async write(files: Map<string, Buffer>) {
       const root = resolve(options.clone);
+      const replaced: string[] = [];
       for (const [path, bytes] of files) {
         if (path.startsWith("/") || path.split("/").includes(".."))
           throw new Error("Publication paths must stay inside the repository.");
@@ -111,22 +124,31 @@ export function publisherGit(options: { clone: string; key: string }) {
         }
         const target = join(root, path);
         if (path.startsWith("src/content/blog/")) {
-          for (const sibling of [target, target.replace(/\.md$/, ".mdx")]) {
-            const existing = await readFile(sibling, "utf8").catch(
+          const post = /^src\/content\/blog\/[a-z0-9-]+\.md$/.test(path);
+          for (const sibling of [path, path.replace(/\.md$/, ".mdx")]) {
+            const existing = await readFile(join(root, sibling), "utf8").catch(
               (error: NodeJS.ErrnoException) => {
                 if (error.code === "ENOENT") return undefined;
                 throw error;
               },
             );
-            if (existing !== undefined && !/^publicationHash:/m.test(existing))
+            if (existing === undefined || /^publicationHash:/m.test(existing))
+              continue;
+            if (!post)
               throw new Error(
                 `The permalink collides with existing writing: ${path}`,
               );
+            replaced.push(
+              sibling,
+              ...(await legacyImages(root, sibling, existing)),
+            );
+            if (sibling !== path) await rm(join(root, sibling));
           }
         }
         await mkdir(dirname(target), { recursive: true });
         await writeFile(target, bytes);
       }
+      return replaced;
     },
     /** Commit the written paths with the publisher's signature; unchanged files make no commit. */
     async commit(paths: string[], message: string) {
@@ -168,4 +190,35 @@ export function publisherGit(options: { clone: string; key: string }) {
       }
     },
   };
+}
+
+const BLOG = "src/content/blog";
+
+/**
+ * Removes the images in the blog directory that a hand-written post references
+ * relatively (frontmatter, Markdown, MDX imports or `src`) and no other post
+ * references, and returns their paths. Nothing outside that directory is touched.
+ */
+async function legacyImages(root: string, post: string, text: string) {
+  const directory = join(root, BLOG);
+  const names = new Set(
+    [
+      ...text.matchAll(
+        /(?<![\w./])\.\/([A-Za-z0-9_][A-Za-z0-9_.-]*\.(?:png|jpe?g|gif|webp|avif|svg))\b/g,
+      ),
+    ].map((match) => match[1]!),
+  );
+  const others: string[] = [];
+  for (const entry of await readdir(directory, { recursive: true }))
+    if (/\.mdx?$/.test(entry) && `${BLOG}/${entry}` !== post)
+      others.push(await readFile(join(directory, entry), "utf8"));
+  const removed: string[] = [];
+  for (const name of names) {
+    if (others.some((other) => other.includes(name))) continue;
+    const stat = await lstat(join(directory, name)).catch(() => undefined);
+    if (!stat?.isFile()) continue;
+    await rm(join(directory, name));
+    removed.push(`${BLOG}/${name}`);
+  }
+  return removed;
 }

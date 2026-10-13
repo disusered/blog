@@ -217,3 +217,10 @@ h6:hover > .anchor-link {
   height: 1.5rem;
   width: auto;
 }
+figure.embed {
+  margin: 2em 0;
+}
+figure.embed figcaption {
+  font-size: 0.8em;
+  text-align: center;
+}

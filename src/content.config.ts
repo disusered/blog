@@ -2,9 +2,14 @@ import { defineCollection, type ImageFunction } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 
+// Hand-written posts import a co-located image; Red posts name a file it
+// published under public/assets/<slug>/.
 const imageWithAlt = (image: ImageFunction) =>
   z.object({
-    heroImage: image(),
+    heroImage: z
+      .string()
+      .regex(/^\/assets\/[a-z0-9-]+\/[a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|webp)$/)
+      .or(image()),
     heroImageAlt: z.string(),
   });
 

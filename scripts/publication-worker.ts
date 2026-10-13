@@ -163,8 +163,13 @@ export async function operate(input: Request) {
           "The repository kept moving during publication; retry this delivery.",
         );
       const head = await git.sync(repository);
-      await git.write(files);
-      const created = await git.commit([...files.keys()], message);
+      const replaced = await git.write(files);
+      const created = await git.commit(
+        [...new Set([...files.keys(), ...replaced])],
+        replaced.length
+          ? `${message}\n\nReplaces these hand-written files:\n${replaced.map((path) => `- ${path}`).join("\n")}`
+          : message,
+      );
       if (!created) commit = head;
       else if (await git.push(repository)) commit = created;
     }

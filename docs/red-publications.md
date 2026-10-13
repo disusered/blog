@@ -16,13 +16,23 @@ approved snapshot to `scripts/publication-worker.ts`. The worker:
    images (`src/content/blog/<slug>.md`, `public/assets/<slug>/`), the public
    OAuth client metadata, and `.well-known/site.standard.publication`.
 3. Commits with its own SSH signing key and pushes. Unchanged files make no
-   commit. A hand-written post with the same slug is never overwritten.
+   commit. A hand-written post with the same slug (no `publicationHash`) is
+   replaced in that commit: its `.md`/`.mdx` and the co-located images only it
+   references are removed, and the commit message lists them. Nothing else is
+   ever deleted.
 4. Waits for Netlify to build that commit, verifies the canonical page and RSS
    carry the approved hash, and returns the website receipt with the deploy and
    commit.
 
 Private on-disk state records the pushed commit and the receipt, so a retry
 resumes without a second commit. Portal serializes deliveries for each identity.
+
+A paragraph holding only a bare URL on the site's own origin or a host in
+`EMBED_HOSTS` (`src/consts.ts`) renders as a sandboxed iframe with a fallback
+link, on the page and in RSS; AT `textContent` and Bluesky keep the URL. Demos
+live under `/demos/`, for example `https://disusered.com/demos/phaser/hello-world/`.
+A payload `cover` (`{ name, alt }`, naming one of its images) becomes the
+post's `heroImage` and the Standard document's cover proposal.
 
 A post with `draft: true` stays in the repository without a page, RSS item, tag,
 or sitemap entry. `fastai` is a draft until Carlos decides to publish it.

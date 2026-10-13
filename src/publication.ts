@@ -1,6 +1,7 @@
 import { unified } from "@astrojs/markdown-remark";
 import { toString } from "hast-util-to-string";
 import { canonical, sha256 } from "./publication-hash.ts";
+import { remarkEmbeds } from "./embeds.ts";
 export { sha256 } from "./publication-hash.ts";
 
 export type Destination = "website" | "atproto" | "bluesky";
@@ -24,6 +25,8 @@ export interface PublicPost {
   externalUrl?: string;
   blueskyText?: string;
   feedPresentation?: "native" | "announcement";
+  /** Names one of `assets` (`assets/<slug>/<name>`) shown as the post's cover. */
+  cover?: { name: string; alt: string };
   destinations: Destination[];
 }
 export interface PublicationEnvelope {
@@ -71,6 +74,9 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
     Number.isNaN(Date.parse(envelope.preparedAt)) ||
     (post.feedPresentation !== undefined &&
       !["native", "announcement"].includes(post.feedPresentation)) ||
+    (post.cover !== undefined &&
+      (typeof post.cover.alt !== "string" ||
+        !/^[a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|webp)$/.test(post.cover.name))) ||
     !post.destinations.length ||
     (post.destinations.includes("atproto") &&
       !post.destinations.includes("website")) ||
@@ -85,20 +91,40 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
       "The publication URL must be an HTTPS origin without a trailing slash.",
     );
   if (post.externalUrl) publicUrl(post.externalUrl, true);
+  if (typeof post.body !== "string" || privateReference(post.body, true))
+    throw new Error("Private references are not public content.");
   for (const value of [
     post.title,
     post.description,
-    post.body,
     post.publication.name,
     post.blueskyText ?? "",
+    post.cover?.alt ?? "",
     ...post.tags,
   ]) {
-    if (
-      typeof value !== "string" ||
-      /polychrome:\/\/|file:\/\/|\/home\/|localhost|127\.0\.0\.1/i.test(value)
-    )
+    if (typeof value !== "string" || privateReference(value))
       throw new Error("Private references are not public content.");
   }
+}
+
+/**
+ * True when public text names a private location. In Markdown bodies a local
+ * address is allowed inside fenced code blocks and inline code spans, where it
+ * is an example; it is still refused in prose and link destinations. Plain
+ * fields refuse it everywhere. Mirrors Red's `withoutCode` rule.
+ */
+export function privateReference(text: string, markdown = false): boolean {
+  const prose = markdown
+    ? text
+        .replace(
+          /^ {0,3}((`|~)\2{2,})[^\n]*\n[\s\S]*?(?:^ {0,3}\1\2*[ \t]*$|(?![\s\S]))/gm,
+          " ",
+        )
+        .replace(/(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?(?<!`)\1(?!`)/g, " ")
+    : text;
+  return (
+    /polychrome:\/\/|file:\/\/|\/home\//i.test(text) ||
+    /localhost|127\.0\.0\.1/i.test(prose)
+  );
 }
 
 function encodeTid(value: bigint): string {
@@ -134,11 +160,15 @@ export function blueskyKey(envelope: PublicationEnvelope): string {
   );
 }
 
-/** The same Markdown renderer supplies full RSS HTML and portable plain text. */
-export async function renderWriting(body: string) {
+/**
+ * The same Markdown renderer supplies full RSS HTML and portable plain text.
+ * Allowlisted bare URLs become iframes in the HTML and stay URLs in the text.
+ */
+export async function renderWriting(body: string, site: string) {
   let text = "";
   const renderer = await unified({
     smartypants: false,
+    remarkPlugins: [remarkEmbeds({ site })],
     rehypePlugins: [
       () => (tree) => {
         text = tree.children

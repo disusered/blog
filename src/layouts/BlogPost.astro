@@ -12,7 +12,7 @@ interface Props {
   description: string;
   pubDate: Date;
   updatedDate?: Date;
-  heroImage?: ImageMetadata;
+  heroImage?: ImageMetadata | string;
   heroImageAlt?: string;
   tags?: string[];
   publicationHash?: string;
@@ -37,11 +37,13 @@ const {
   media,
 } = Astro.props;
 
+const heroSrc = typeof heroImage === "string" ? heroImage : heroImage?.src;
+
 const schema = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: title,
-  image: heroImage ? [heroImage.src] : [],
+  image: heroSrc ? [heroSrc] : [],
   datePublished: pubDate,
   dateModified: updatedDate ? updatedDate : pubDate,
   author: [
@@ -54,9 +56,9 @@ const schema = {
 };
 
 const image =
-  heroImage && heroImageAlt
+  heroSrc && heroImageAlt
     ? {
-        src: heroImage.src,
+        src: heroSrc,
         alt: heroImageAlt,
       }
     : undefined;
@@ -127,7 +129,13 @@ const image =
     <main>
       <article>
         <div class="hero-image">
-          {heroImage && <Image src={heroImage} alt={heroImageAlt ?? ""} />}
+          {
+            typeof heroImage === "string" ? (
+              <img src={heroImage} alt={heroImageAlt ?? ""} />
+            ) : (
+              heroImage && <Image src={heroImage} alt={heroImageAlt ?? ""} />
+            )
+          }
         </div>
         <div class="prose">
           <div class="title">
