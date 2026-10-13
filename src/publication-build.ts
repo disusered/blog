@@ -49,7 +49,9 @@ export function snapshotFiles(
     );
   if (
     snapshot.envelopes.some((entry) =>
-      entry.payload.destinations.includes("atproto"),
+      entry.payload.feedPresentation !== undefined
+        ? entry.payload.destinations.includes("website")
+        : entry.payload.destinations.includes("atproto"),
     )
   ) {
     const profile = current.payload.publication;

@@ -23,6 +23,7 @@ export interface PublicPost {
   assets: { path: string; sha256: string; hex: string }[];
   externalUrl?: string;
   blueskyText?: string;
+  feedPresentation?: "native" | "announcement";
   destinations: Destination[];
 }
 export interface PublicationEnvelope {
@@ -68,7 +69,11 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
     !/^[a-zA-Z0-9_-]+$/.test(post.publication.id) ||
     !/^did:(plc|web):[a-zA-Z0-9._:%-]+$/.test(post.publication.did) ||
     Number.isNaN(Date.parse(envelope.preparedAt)) ||
-    !post.destinations.includes("website") ||
+    (post.feedPresentation !== undefined &&
+      !["native", "announcement"].includes(post.feedPresentation)) ||
+    !post.destinations.length ||
+    (post.destinations.includes("atproto") &&
+      !post.destinations.includes("website")) ||
     post.destinations.some(
       (target) => !["website", "atproto", "bluesky"].includes(target),
     )

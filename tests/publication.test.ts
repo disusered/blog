@@ -7,6 +7,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { canonical, sha256 } from "../src/publication-hash.ts";
 import { buildRecords } from "../src/publication-records.ts";
+import { operate } from "../scripts/publication-worker.ts";
+import { publicFiles } from "../scripts/publish-blog.ts";
 import { metadataFiles, snapshotFiles } from "../src/publication-build.ts";
 import {
   preflight,
@@ -41,6 +43,7 @@ export function envelope(
     body: "Here is something **interesting**.\n\nAnother paragraph.",
     assets: [],
     blueskyText: "Interesting 🐈 https://example.org/article",
+    feedPresentation: "native",
     destinations: ["website", "atproto", "bluesky"],
     ...changes,
   };
@@ -59,9 +62,9 @@ test("full writing and exact short text produce valid records with stable identi
   const first = await buildRecords(envelope());
   const repeated = await buildRecords(envelope());
   assert.deepEqual(repeated, first);
-  assert.match(first.document.record.textContent!, /something interesting/);
-  assert.match(first.document.record.textContent!, /Another paragraph/);
-  assert.doesNotMatch(first.document.record.textContent!, /\*\*/);
+  assert.match(first.document!.record.textContent!, /something interesting/);
+  assert.match(first.document!.record.textContent!, /Another paragraph/);
+  assert.doesNotMatch(first.document!.record.textContent!, /\*\*/);
   assert.equal(first.bluesky!.record.text, envelope().payload.blueskyText);
   const facet = first.bluesky!.record.facets![0]!;
   assert.equal(
@@ -78,7 +81,7 @@ test("full writing and exact short text produce valid records with stable identi
   const corrected = await buildRecords(
     envelope({ body: "A correction." }, "b"),
   );
-  assert.equal(corrected.document.rkey, first.document.rkey);
+  assert.equal(corrected.document!.rkey, first.document!.rkey);
   assert.notEqual(corrected.bluesky!.rkey, first.bluesky!.rkey);
   const secondIdentity = await buildRecords(
     envelope({
@@ -89,7 +92,140 @@ test("full writing and exact short text produce valid records with stable identi
       },
     }),
   );
-  assert.notEqual(secondIdentity.document.rkey, first.document.rkey);
+  assert.notEqual(secondIdentity.document!.rkey, first.document!.rkey);
+});
+
+test("native microposts omit website records and generated link cards", async () => {
+  for (const media of ["note", "link-post"] as const) {
+    const native = await buildRecords(
+      envelope({ media, destinations: ["bluesky"] }),
+    );
+    assert.equal(native.publication, undefined);
+    assert.equal(native.document, undefined);
+    assert.equal(native.bluesky!.record.embed, undefined);
+    assert.equal(native.bluesky!.record.text, envelope().payload.blueskyText);
+  }
+  const websiteNote = await buildRecords(
+    envelope({ destinations: ["website", "bluesky"] }),
+  );
+  assert.ok(websiteNote.document);
+  assert.equal(websiteNote.bluesky!.record.embed, undefined);
+  const linked = await buildRecords(
+    envelope({
+      destinations: ["bluesky"],
+      externalUrl: "https://example.org/shared",
+    }),
+  );
+  assert.deepEqual(linked.bluesky!.record.embed, {
+    $type: "app.bsky.embed.external",
+    external: {
+      uri: "https://example.org/shared",
+      title: "A note",
+      description: "My observation",
+    },
+  });
+  const article = await buildRecords(
+    envelope({
+      media: "long-form",
+      feedPresentation: "announcement",
+      destinations: ["website", "bluesky"],
+    }),
+  );
+  assert.deepEqual(article.bluesky!.record.embed, {
+    $type: "app.bsky.embed.external",
+    external: {
+      uri: canonicalUrl(envelope()),
+      title: "A note",
+      description: "My observation",
+    },
+  });
+  const socialArticle = await buildRecords(
+    envelope({ media: "long-form", destinations: ["bluesky"] }),
+  );
+  assert.equal(socialArticle.bluesky!.record.embed, undefined);
+});
+
+test("legacy envelopes retain their approved website link card", async () => {
+  const input = envelope({ feedPresentation: undefined });
+  const records = await buildRecords(input);
+  assert.deepEqual(records.bluesky!.record.embed, {
+    $type: "app.bsky.embed.external",
+    external: {
+      uri: canonicalUrl(input),
+      title: input.payload.title,
+      description: input.payload.description,
+    },
+  });
+});
+
+test("website exports require selection and Standard metadata follows website publishing", async () => {
+  const input = envelope({ destinations: ["bluesky"] });
+  assert.throws(() => publicFiles(input), /Website delivery was not selected/);
+  await assert.rejects(
+    operate({
+      action: "website",
+      envelope: input,
+      snapshot: {
+        schemaVersion: "polychrome.publication-snapshot.v1",
+        publication: "carlos",
+        envelopes: [input],
+      },
+      siteId: "site-1",
+    }),
+    /Website delivery was not selected/,
+  );
+  const website = envelope({ destinations: ["website"] });
+  const files = snapshotFiles(
+    {
+      schemaVersion: "polychrome.publication-snapshot.v1",
+      publication: "carlos",
+      envelopes: [website],
+    },
+    website,
+  );
+  assert.ok(files.has("public/.well-known/site.standard.publication"));
+  assert.match(
+    files.get("src/content/blog/a-note.md")!.toString(),
+    /standardDocument: "at:\/\//,
+  );
+});
+
+test("native image proposals preserve frozen bytes and the author's alt text", async () => {
+  const bytes = Buffer.from("image fixture");
+  const asset = {
+    path: "assets/a-note/cat.png",
+    sha256: sha256(bytes),
+    hex: bytes.toString("hex"),
+  };
+  const input = envelope({
+    destinations: ["bluesky"],
+    body: "![A curious cat](./assets/a-note/cat.png)",
+    assets: [asset],
+  });
+  const native = await buildRecords(input);
+  assert.deepEqual(native.bluesky!.reviewedImages, [
+    { ...asset, alt: "A curious cat" },
+  ]);
+  assert.equal(native.bluesky!.record.embed, undefined);
+  await assert.rejects(
+    buildRecords(
+      envelope({ ...input.payload, externalUrl: "https://example.org/shared" }),
+    ),
+    /images or a link card/,
+  );
+  await assert.rejects(
+    buildRecords(envelope({ ...input.payload, assets: [] })),
+    /frozen publication asset/,
+  );
+  await assert.rejects(
+    buildRecords(
+      envelope({
+        ...input.payload,
+        body: Array(5).fill(input.payload.body).join("\n"),
+      }),
+    ),
+    /at most four/,
+  );
 });
 
 test("Bluesky never silently truncates and content tampering is refused", async () => {

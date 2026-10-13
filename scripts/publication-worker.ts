@@ -75,6 +75,11 @@ export async function operate(input: Request) {
   )
     throw new Error("Select a supported publication action.");
   if (input.action === "build-records") return buildRecords(input.envelope);
+  if (
+    input.action === "website" &&
+    !input.envelope.payload.destinations.includes("website")
+  )
+    throw new Error("Website delivery was not selected.");
   if (!/^[a-zA-Z0-9-]+$/.test(input.siteId))
     throw new Error("Configure a Netlify site ID.");
   const token = process.env.NETLIFY_AUTH_TOKEN ?? "";

@@ -40,6 +40,8 @@ export function publicFiles(
   if (envelope.schemaVersion === "polychrome.publication-envelope.v2") {
     const approved = envelope as PublicationEnvelope;
     validateEnvelope(approved);
+    if (!approved.payload.destinations.includes("website"))
+      throw new Error("Website delivery was not selected.");
     return renderPost(
       approved.payload,
       approved.payloadSha256,
@@ -99,9 +101,11 @@ function renderPost(
           media: post.media,
           author: post.publication.name,
           externalUrl: post.externalUrl ?? null,
-          standardDocument: post.destinations.includes("atproto")
-            ? atUri
-            : null,
+          standardDocument:
+            post.feedPresentation !== undefined ||
+            post.destinations.includes("atproto")
+              ? atUri
+              : null,
         }
       : {}),
   };
