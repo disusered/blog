@@ -11,6 +11,10 @@ export interface PublicationProfile {
   url: string;
   did: string;
 }
+export interface PublicReplyRef {
+  uri: string;
+  cid: string;
+}
 export interface PublicPost {
   schemaVersion: "polychrome.public-post.v2";
   publication: PublicationProfile;
@@ -25,6 +29,11 @@ export interface PublicPost {
   externalUrl?: string;
   blueskyText?: string;
   feedPresentation?: "native" | "announcement";
+  /** Bluesky thread root and immediate parent when continuing a published thread. */
+  reply?: {
+    root: PublicReplyRef;
+    parent: PublicReplyRef;
+  };
   /** Names one of `assets` (`assets/<slug>/<name>`) shown as the post's cover. */
   cover?: { name: string; alt: string };
   destinations: Destination[];
@@ -77,6 +86,9 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
     (post.cover !== undefined &&
       (typeof post.cover.alt !== "string" ||
         !/^[a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|webp)$/.test(post.cover.name))) ||
+    (post.reply !== undefined &&
+      (!validReplyRef(post.reply?.root) ||
+        !validReplyRef(post.reply?.parent))) ||
     !post.destinations.length ||
     (post.destinations.includes("atproto") &&
       !post.destinations.includes("website")) ||
@@ -104,6 +116,21 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
     if (typeof value !== "string" || privateReference(value))
       throw new Error("Private references are not public content.");
   }
+}
+
+function validReplyRef(value: unknown): value is PublicReplyRef {
+  if (!value || typeof value !== "object") return false;
+  const { uri, cid } = value as Record<string, unknown>;
+  return (
+    typeof uri === "string" &&
+    /^at:\/\/did:(?:plc:[a-z2-7]{24}|web:[a-zA-Z0-9._:%-]+)\/app\.bsky\.feed\.post\/[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$/.test(
+      uri,
+    ) &&
+    typeof cid === "string" &&
+    /^[a-zA-Z0-9+=]{8,256}$/.test(cid) &&
+    !privateReference(uri) &&
+    !privateReference(cid)
+  );
 }
 
 /**

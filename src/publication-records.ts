@@ -139,6 +139,14 @@ export async function buildRecords(
     $type: "app.bsky.feed.post",
     text,
     createdAt: envelope.preparedAt,
+    ...(post.reply
+      ? {
+          reply: {
+            root: { uri: post.reply.root.uri, cid: post.reply.root.cid },
+            parent: { uri: post.reply.parent.uri, cid: post.reply.parent.cid },
+          },
+        }
+      : {}),
     ...(facets.length ? { facets } : {}),
     ...(externalUri
       ? {

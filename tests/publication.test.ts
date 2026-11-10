@@ -597,3 +597,37 @@ test("waiting fails on a broken Netlify build and returns the commit's deploy on
     /never live/,
   );
 });
+
+test("Bluesky thread replies build valid replyRef records and reject malformed reply targets", async () => {
+  const rootRef = {
+    uri: "at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/3mzyafqaxs6pc",
+    cid: "bafyreiggkdwsumjehs2hyc5wd6al4vdkddwgx6pf4h3lyhihwzgm3c7jcq",
+  };
+  const parentRef = {
+    uri: "at://did:plc:aaaaaaaaaaaaaaaaaaaaaaaa/app.bsky.feed.post/3mzyagaopjh2a",
+    cid: "bafyreicqecuxtunlfs5y3t5vcpfc3ke3fhwbb26q2hbmfuewc52x6eczwq",
+  };
+  const input = envelope({
+    destinations: ["bluesky"],
+    reply: { root: rootRef, parent: parentRef },
+  });
+  const records = await buildRecords(input);
+  assert.deepEqual(records.bluesky?.record.reply, {
+    root: rootRef,
+    parent: parentRef,
+  });
+
+  assert.throws(
+    () =>
+      validateEnvelope(
+        envelope({
+          destinations: ["bluesky"],
+          reply: {
+            root: { ...rootRef, uri: "https://bsky.app/profile/x/post/y" },
+            parent: parentRef,
+          },
+        }),
+      ),
+    /Invalid approved publication envelope/,
+  );
+});
