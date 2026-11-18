@@ -46,7 +46,7 @@ export function publicFiles(
     return renderPost(
       approved.payload,
       approved.payloadSha256,
-      documentUri(approved),
+      approved.payload.publication.did ? documentUri(approved) : undefined,
     );
   }
   const { envelopeSha256, ...core } = envelope;
@@ -109,8 +109,9 @@ function renderPost(
           author: post.publication.name,
           externalUrl: post.externalUrl ?? null,
           standardDocument:
-            post.feedPresentation !== undefined ||
-            post.destinations.includes("atproto")
+            (post.feedPresentation !== undefined ||
+              post.destinations.includes("atproto")) &&
+            atUri
               ? atUri
               : null,
           ...(cover

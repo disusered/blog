@@ -4,16 +4,22 @@ import { canonical, sha256 } from "./publication-hash.ts";
 import { remarkEmbeds } from "./embeds.ts";
 export { sha256 } from "./publication-hash.ts";
 
-export type Destination = "website" | "atproto" | "bluesky";
+export type Destination = "website" | "atproto" | "bluesky" | "x";
 export interface PublicationProfile {
   id: string;
   name: string;
   url: string;
-  did: string;
+  did?: string;
+  xUserId?: string;
+  xHandle?: string;
 }
 export interface PublicReplyRef {
   uri: string;
   cid: string;
+}
+export interface PublicXReplyRef {
+  parentTweetId: string;
+  parentUri: string;
 }
 export interface PublicPost {
   schemaVersion: "polychrome.public-post.v2";
@@ -28,12 +34,17 @@ export interface PublicPost {
   assets: { path: string; sha256: string; hex: string }[];
   externalUrl?: string;
   blueskyText?: string;
+  xText?: string;
+  xLinkPlacement?: "reply";
+  xReplyUrl?: string;
   feedPresentation?: "native" | "announcement";
   /** Bluesky thread root and immediate parent when continuing a published thread. */
   reply?: {
     root: PublicReplyRef;
     parent: PublicReplyRef;
   };
+  /** X parent tweet when continuing a published thread on X. */
+  xReply?: PublicXReplyRef;
   /** Names one of `assets` (`assets/<slug>/<name>`) shown as the post's cover. */
   cover?: { name: string; alt: string };
   destinations: Destination[];
@@ -79,21 +90,33 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
     !/^sha256:[a-f0-9]{64}$/.test(envelope.edition.revision) ||
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(post.slug) ||
     !/^[a-zA-Z0-9_-]+$/.test(post.publication.id) ||
-    !/^did:(plc|web):[a-zA-Z0-9._:%-]+$/.test(post.publication.did) ||
+    (post.publication.did !== undefined &&
+      !/^did:(plc|web):[a-zA-Z0-9._:%-]+$/.test(post.publication.did)) ||
+    (post.destinations.some(
+      (target) => target === "atproto" || target === "bluesky",
+    ) &&
+      !post.publication.did) ||
+    (post.publication.xUserId !== undefined &&
+      !/^[0-9]+$/.test(post.publication.xUserId)) ||
+    (post.publication.xHandle !== undefined &&
+      !/^[A-Za-z0-9_]{1,15}$/.test(post.publication.xHandle)) ||
+    (post.destinations.includes("x") && !post.publication.xUserId) ||
     Number.isNaN(Date.parse(envelope.preparedAt)) ||
     (post.feedPresentation !== undefined &&
       !["native", "announcement"].includes(post.feedPresentation)) ||
+    (post.xLinkPlacement !== undefined && post.xLinkPlacement !== "reply") ||
     (post.cover !== undefined &&
       (typeof post.cover.alt !== "string" ||
         !/^[a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|webp)$/.test(post.cover.name))) ||
     (post.reply !== undefined &&
       (!validReplyRef(post.reply?.root) ||
         !validReplyRef(post.reply?.parent))) ||
+    (post.xReply !== undefined && !validXReplyRef(post.xReply)) ||
     !post.destinations.length ||
     (post.destinations.includes("atproto") &&
       !post.destinations.includes("website")) ||
     post.destinations.some(
-      (target) => !["website", "atproto", "bluesky"].includes(target),
+      (target) => !["website", "atproto", "bluesky", "x"].includes(target),
     )
   )
     throw new Error("Invalid approved publication envelope.");
@@ -103,19 +126,37 @@ export function validateEnvelope(envelope: PublicationEnvelope): void {
       "The publication URL must be an HTTPS origin without a trailing slash.",
     );
   if (post.externalUrl) publicUrl(post.externalUrl, true);
+  if (post.xReplyUrl) publicUrl(post.xReplyUrl, true);
   if (typeof post.body !== "string" || privateReference(post.body, true))
     throw new Error("Private references are not public content.");
   for (const value of [
     post.title,
     post.description,
     post.publication.name,
+    post.publication.xHandle ?? "",
     post.blueskyText ?? "",
+    post.xText ?? "",
+    post.xReplyUrl ?? "",
     post.cover?.alt ?? "",
     ...post.tags,
   ]) {
     if (typeof value !== "string" || privateReference(value))
       throw new Error("Private references are not public content.");
   }
+}
+
+function validXReplyRef(value: unknown): value is PublicXReplyRef {
+  if (!value || typeof value !== "object") return false;
+  const { parentTweetId, parentUri } = value as Record<string, unknown>;
+  return (
+    typeof parentTweetId === "string" &&
+    /^[0-9]+$/.test(parentTweetId) &&
+    typeof parentUri === "string" &&
+    /^https:\/\/x\.com\/(?:[A-Za-z0-9_]{1,15}|i)\/status\/[0-9]+$/.test(
+      parentUri,
+    ) &&
+    !privateReference(parentUri)
+  );
 }
 
 function validReplyRef(value: unknown): value is PublicReplyRef {

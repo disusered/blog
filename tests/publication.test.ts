@@ -631,3 +631,72 @@ test("Bluesky thread replies build valid replyRef records and reject malformed r
     /Invalid approved publication envelope/,
   );
 });
+
+test("X envelopes validate dual and X-only profiles, private references, and website snapshots without AT DIDs", async () => {
+  const dual = envelope({
+    publication: {
+      id: "carlos",
+      name: "Carlos",
+      url: "https://writer.example",
+      did: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa",
+      xUserId: "1850000000000000001",
+      xHandle: "carlos",
+    },
+    xText: "Cross-posted to X and Bluesky.",
+    xLinkPlacement: "reply",
+    xReplyUrl: "https://writer.example/blog/a-note/",
+    xReply: {
+      parentTweetId: "1990000000000000100",
+      parentUri: "https://x.com/carlos/status/1990000000000000100",
+    },
+    destinations: ["website", "atproto", "bluesky", "x"],
+  });
+  validateEnvelope(dual);
+  const dualRecords = await buildRecords(dual);
+  assert.ok(dualRecords.document);
+  assert.ok(dualRecords.bluesky);
+
+  const xOnlyWebsite = envelope({
+    publication: {
+      id: "herding-cats",
+      name: "Herding Cats",
+      url: "https://herdingcats.example",
+      xUserId: "1850000000000000002",
+      xHandle: "herdingcats",
+    },
+    xText: "Website + X without AT DID.",
+    destinations: ["website", "x"],
+  });
+  validateEnvelope(xOnlyWebsite);
+  const files = snapshotFiles(
+    {
+      schemaVersion: "polychrome.publication-snapshot.v1",
+      publication: "herding-cats",
+      envelopes: [xOnlyWebsite],
+    },
+    xOnlyWebsite,
+  );
+  assert.equal(files.has("public/.well-known/site.standard.publication"), false);
+  assert.match(
+    files.get("src/content/blog/a-note.md")!.toString(),
+    /standardDocument: null/,
+  );
+
+  assert.throws(
+    () =>
+      validateEnvelope(
+        envelope({
+          xText: "Leaks http://localhost:3000/secret",
+          publication: {
+            id: "carlos",
+            name: "Carlos",
+            url: "https://writer.example",
+            xUserId: "1850000000000000001",
+          },
+          destinations: ["x"],
+        }),
+      ),
+    /Private references/,
+  );
+});
+

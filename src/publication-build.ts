@@ -48,6 +48,7 @@ export function snapshotFiles(
       "The current approved revision is missing from the public snapshot.",
     );
   if (
+    current.payload.publication.did &&
     snapshot.envelopes.some((entry) =>
       entry.payload.feedPresentation !== undefined
         ? entry.payload.destinations.includes("website")

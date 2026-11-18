@@ -49,7 +49,7 @@ export async function buildRecords(
   const profile = post.publication;
   const website = post.destinations.includes("website");
   const documents: Pick<PublicationRecords, "publication" | "document"> =
-    website
+    website && profile.did
       ? await (async () => {
           const publicationRkey = publicationKey(profile);
           const publicationRecord = {
